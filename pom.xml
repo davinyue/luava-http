@@ -37,7 +37,7 @@
 
 	<groupId>org.linuxprobe</groupId>
 	<artifactId>luava-http</artifactId>
-	<version>0.0.1.RELEASE</version>
+	<version>0.0.2.RELEASE</version>
 	<packaging>jar</packaging>
 	<name>luava-http</name>
 	<description>luava-http</description>
@@ -78,6 +78,17 @@
 			<groupId>org.linuxprobe</groupId>
 			<artifactId>luava-json</artifactId>
 			<version>0.0.1.RELEASE</version>
+		</dependency>
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>javax.servlet-api</artifactId>
+			<version>4.0.1</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>3.8.1</version>
 		</dependency>
 	</dependencies>
 	<build>
