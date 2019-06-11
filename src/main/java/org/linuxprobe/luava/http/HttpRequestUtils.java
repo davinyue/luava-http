@@ -51,6 +51,7 @@ import org.linuxprobe.luava.json.JacksonUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
@@ -566,6 +567,7 @@ public class HttpRequestUtils {
 
 	/** 连接池 */
 	@Setter
+	@Getter
 	@Accessors(chain = true)
 	public static class ConnectPool {
 		private static final int defaultConnectTimeout = 5000;
