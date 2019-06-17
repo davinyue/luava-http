@@ -109,7 +109,7 @@ public class HttpServletUtils {
 			}
 		}
 		/** 对于通过多个代理的情况，第一个IP为客户端真实IP,多个IP按照','分割 */
-		if (ipAddress != null && ipAddress.length() > 15) { // "***.***.***.***".length() = 15
+		if (StringUtils.isNoneBlank(ipAddress)) {
 			if (ipAddress.indexOf(",") > 0) {
 				ipAddress = ipAddress.substring(0, ipAddress.indexOf(","));
 			}
