@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.URLEncoder;
@@ -15,6 +16,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
+import org.linuxprobe.luava.json.JacksonUtils;
 
 public class HttpServletUtils {
 	/** 判断是否是ajax请求 */
@@ -179,8 +181,9 @@ public class HttpServletUtils {
 	 * @param inputStream 输入流
 	 */
 	public static void responseFile(HttpServletResponse response, String fileName, InputStream inputStream) {
+		ServletOutputStream out = null;
 		try {
-			ServletOutputStream out = response.getOutputStream();
+			out = response.getOutputStream();
 			/** 设置文件ContentType类型，这样设置，会自动判断下载文件类型 */
 			response.setContentType("multipart/form-data");
 			setResponseFileName(response, fileName);
@@ -196,5 +199,57 @@ public class HttpServletUtils {
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	/**
+	 * 返回json
+	 * 
+	 * @param isMSBrowser 是否是ie浏览器
+	 * @param request     request请求对象,用于判断是否是ie浏览器
+	 * @param response    httpServletResponse
+	 * @param data        返回的数据对象
+	 */
+	public static void responseJson(boolean isMSBrowser, HttpServletResponse response, Object data) {
+		response.setCharacterEncoding("UTF-8");
+		if (isMSBrowser) {
+			response.setHeader("Content-type", "text/html;charset=UTF-8");
+			response.setContentType("text/html");
+		} else {
+			response.setHeader("Content-type", "text/json;charset=UTF-8");
+			response.setContentType("text/json");
+		}
+		PrintWriter writer = null;
+		try {
+			writer = response.getWriter();
+			writer.write(JacksonUtils.toJsonString(data));
+			writer.flush();
+
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		} finally {
+			writer.close();
+		}
+	}
+
+	/**
+	 * 返回json
+	 * 
+	 * @param response httpServletResponse
+	 * @param data     返回的数据对象
+	 */
+	public static void responseJson(HttpServletResponse response, Object data) {
+		responseJson(false, response, data);
+	}
+
+	/**
+	 * 返回json
+	 * 
+	 * @param request  request请求对象,用于判断是否是ie浏览器
+	 * @param response httpServletResponse
+	 * @param data     返回的数据对象
+	 */
+	public static void responseJson(HttpServletRequest request, HttpServletResponse response, Object data) {
+		boolean isMSBrowser = HttpServletUtils.isMSBrowser(request);
+		responseJson(isMSBrowser, response, data);
 	}
 }
