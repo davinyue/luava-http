@@ -205,7 +205,6 @@ public class HttpServletUtils {
 	 * 返回json
 	 * 
 	 * @param isMSBrowser 是否是ie浏览器
-	 * @param request     request请求对象,用于判断是否是ie浏览器
 	 * @param response    httpServletResponse
 	 * @param data        返回的数据对象
 	 */
