@@ -20,9 +20,9 @@ import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.NoHttpResponseException;
 import org.apache.http.ParseException;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.HttpRequestRetryHandler;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
@@ -83,16 +83,16 @@ public class HttpRequestUtils {
 	 * @param url     请求地址
 	 * @param headers 请求头
 	 */
-	public CloseableHttpResponse getRequest(String url, Header... headers) {
+	public HttpResponse getRequest(String url, Header... headers) {
 		if (logger.isTraceEnabled()) {
 			logger.trace("本次请求地址:" + url);
 		}
-		CloseableHttpClient httpclient = this.getHttpClient();
+		HttpClient httpclient = this.getHttpClient();
 		HttpGet httpGet = new HttpGet(url);
 		if (headers != null && headers.length != 0) {
 			httpGet.setHeaders(headers);
 		}
-		CloseableHttpResponse response = null;
+		HttpResponse response = null;
 		try {
 			response = httpclient.execute(httpGet);
 		} catch (IOException e) {
@@ -106,7 +106,7 @@ public class HttpRequestUtils {
 	 * 
 	 * @param url 请求地址
 	 */
-	public CloseableHttpResponse getRequest(String url) {
+	public HttpResponse getRequest(String url) {
 		return this.getRequest(url, (Header[]) null);
 	}
 
@@ -116,7 +116,7 @@ public class HttpRequestUtils {
 	 * @param url       请求地址
 	 * @param urlParams url参数
 	 */
-	public CloseableHttpResponse getRequest(String url, Object urlParams, Header... headers) {
+	public HttpResponse getRequest(String url, Object urlParams, Header... headers) {
 		if (urlParams != null) {
 			String urlParam = Qs.stringify(urlParams);
 			if (url.indexOf("?") != -1) {
@@ -134,7 +134,7 @@ public class HttpRequestUtils {
 	 * @param url       请求地址
 	 * @param urlParams url参数
 	 */
-	public CloseableHttpResponse getRequest(String url, Object urlParams) {
+	public HttpResponse getRequest(String url, Object urlParams) {
 		return this.getRequest(url, urlParams, (Header[]) null);
 	}
 
@@ -144,16 +144,16 @@ public class HttpRequestUtils {
 	 * @param url     请求地址
 	 * @param headers 请求头
 	 */
-	public CloseableHttpResponse deleteRequest(String url, Header... headers) {
+	public HttpResponse deleteRequest(String url, Header... headers) {
 		if (logger.isTraceEnabled()) {
 			logger.trace("本次请求地址:" + url);
 		}
-		CloseableHttpClient httpclient = this.getHttpClient();
+		HttpClient httpclient = this.getHttpClient();
 		HttpDelete httpDelete = new HttpDelete(url);
 		if (headers != null && headers.length != 0) {
 			httpDelete.setHeaders(headers);
 		}
-		CloseableHttpResponse response = null;
+		HttpResponse response = null;
 		try {
 			response = httpclient.execute(httpDelete);
 		} catch (IOException e) {
@@ -167,7 +167,7 @@ public class HttpRequestUtils {
 	 * 
 	 * @param url 请求地址
 	 */
-	public CloseableHttpResponse deleteRequest(String url) {
+	public HttpResponse deleteRequest(String url) {
 		return this.deleteRequest(url, (Header[]) null);
 	}
 
@@ -178,7 +178,7 @@ public class HttpRequestUtils {
 	 * @param urlParams url参数
 	 * @param headers   请求头
 	 */
-	public CloseableHttpResponse deleteRequest(String url, Object urlParams, Header... headers) {
+	public HttpResponse deleteRequest(String url, Object urlParams, Header... headers) {
 		if (urlParams != null) {
 			String urlParam = Qs.stringify(urlParams);
 			if (url.indexOf("?") != -1) {
@@ -196,7 +196,7 @@ public class HttpRequestUtils {
 	 * @param url       请求地址
 	 * @param urlParams url参数
 	 */
-	public CloseableHttpResponse deleteRequest(String url, Object urlParams) {
+	public HttpResponse deleteRequest(String url, Object urlParams) {
 		return this.deleteRequest(url, urlParams, (Header[]) null);
 	}
 
@@ -206,16 +206,16 @@ public class HttpRequestUtils {
 	 * @param url     请求地址
 	 * @param headers 请求头
 	 */
-	public CloseableHttpResponse headRequest(String url, Header... headers) {
+	public HttpResponse headRequest(String url, Header... headers) {
 		if (logger.isTraceEnabled()) {
 			logger.trace("本次请求地址:" + url);
 		}
-		CloseableHttpClient httpclient = this.getHttpClient();
+		HttpClient httpclient = this.getHttpClient();
 		HttpHead httpHead = new HttpHead(url);
 		if (headers != null && headers.length != 0) {
 			httpHead.setHeaders(headers);
 		}
-		CloseableHttpResponse response = null;
+		HttpResponse response = null;
 		try {
 			response = httpclient.execute(httpHead);
 		} catch (IOException e) {
@@ -229,7 +229,7 @@ public class HttpRequestUtils {
 	 * 
 	 * @param url 请求地址
 	 */
-	public CloseableHttpResponse headRequest(String url) {
+	public HttpResponse headRequest(String url) {
 		return this.headRequest(url, (Header[]) null);
 	}
 
@@ -240,7 +240,7 @@ public class HttpRequestUtils {
 	 * @param urlParams url参数
 	 * @param headers   请求头
 	 */
-	public CloseableHttpResponse headRequest(String url, Object urlParams, Header... headers) {
+	public HttpResponse headRequest(String url, Object urlParams, Header... headers) {
 		if (urlParams != null) {
 			String urlParam = Qs.stringify(urlParams);
 			if (url.indexOf("?") != -1) {
@@ -258,7 +258,7 @@ public class HttpRequestUtils {
 	 * @param url       请求地址
 	 * @param urlParams url参数
 	 */
-	public CloseableHttpResponse headRequest(String url, Object urlParams) {
+	public HttpResponse headRequest(String url, Object urlParams) {
 		return this.headRequest(url, urlParams, (Header[]) null);
 	}
 
@@ -268,16 +268,16 @@ public class HttpRequestUtils {
 	 * @param url     请求地址
 	 * @param headers 请求头
 	 */
-	public CloseableHttpResponse optionsRequest(String url, Header... headers) {
+	public HttpResponse optionsRequest(String url, Header... headers) {
 		if (logger.isTraceEnabled()) {
 			logger.trace("本次请求地址:" + url);
 		}
-		CloseableHttpClient httpclient = this.getHttpClient();
+		HttpClient httpclient = this.getHttpClient();
 		HttpOptions httpOptions = new HttpOptions(url);
 		if (headers != null && headers.length != 0) {
 			httpOptions.setHeaders(headers);
 		}
-		CloseableHttpResponse response = null;
+		HttpResponse response = null;
 		try {
 			response = httpclient.execute(httpOptions);
 		} catch (IOException e) {
@@ -291,7 +291,7 @@ public class HttpRequestUtils {
 	 * 
 	 * @param url 请求地址
 	 */
-	public CloseableHttpResponse optionsRequest(String url) {
+	public HttpResponse optionsRequest(String url) {
 		return this.optionsRequest(url, (Header[]) null);
 	}
 
@@ -302,7 +302,7 @@ public class HttpRequestUtils {
 	 * @param urlParams url参数
 	 * @param headers   请求头
 	 */
-	public CloseableHttpResponse optionsRequest(String url, Object urlParams, Header... headers) {
+	public HttpResponse optionsRequest(String url, Object urlParams, Header... headers) {
 		if (urlParams != null) {
 			String urlParam = Qs.stringify(urlParams);
 			if (url.indexOf("?") != -1) {
@@ -320,7 +320,7 @@ public class HttpRequestUtils {
 	 * @param url       请求地址
 	 * @param urlParams url参数
 	 */
-	public CloseableHttpResponse optionsRequest(String url, Object urlParams) {
+	public HttpResponse optionsRequest(String url, Object urlParams) {
 		return this.optionsRequest(url, urlParams, (Header[]) null);
 	}
 
@@ -332,7 +332,7 @@ public class HttpRequestUtils {
 	 * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数
 	 * @param headers   请求头
 	 */
-	public CloseableHttpResponse postRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
+	public HttpResponse postRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
 		if (urlParams != null) {
 			String urlParam = Qs.stringify(urlParams);
 			if (url.indexOf("?") != -1) {
@@ -344,7 +344,7 @@ public class HttpRequestUtils {
 		if (logger.isTraceEnabled()) {
 			logger.trace("本次请求地址:" + url);
 		}
-		CloseableHttpClient httpclient = this.getHttpClient();
+		HttpClient httpclient = this.getHttpClient();
 		HttpPost httpPost = new HttpPost(url);
 		if (headers != null && headers.length != 0) {
 			httpPost.setHeaders(headers);
@@ -370,7 +370,7 @@ public class HttpRequestUtils {
 				httpPost.setEntity(new StringEntity(bodyStr, ContentType.APPLICATION_JSON));
 			}
 		}
-		CloseableHttpResponse response = null;
+		HttpResponse response = null;
 		try {
 			response = httpclient.execute(httpPost);
 		} catch (IOException e) {
@@ -386,7 +386,7 @@ public class HttpRequestUtils {
 	 * @param urlParams url参数
 	 * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数
 	 */
-	public CloseableHttpResponse postRequest(String url, Object urlParams, Object bodyParam) {
+	public HttpResponse postRequest(String url, Object urlParams, Object bodyParam) {
 		return this.postRequest(url, urlParams, bodyParam, (Header[]) null);
 	}
 
@@ -397,7 +397,7 @@ public class HttpRequestUtils {
 	 * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数
 	 * @param headers   请求头
 	 */
-	public CloseableHttpResponse postRequest(String url, Object bodyParam, Header... headers) {
+	public HttpResponse postRequest(String url, Object bodyParam, Header... headers) {
 		return this.postRequest(url, null, bodyParam, headers);
 	}
 
@@ -407,7 +407,7 @@ public class HttpRequestUtils {
 	 * @param url       请求地址
 	 * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数
 	 */
-	public CloseableHttpResponse postRequest(String url, Object bodyParam) {
+	public HttpResponse postRequest(String url, Object bodyParam) {
 		return this.postRequest(url, null, bodyParam);
 	}
 
@@ -418,7 +418,7 @@ public class HttpRequestUtils {
 	 * @param urlParams url参数
 	 * @param headers   请求头
 	 */
-	public CloseableHttpResponse postRequest(Object urlParams, String url, Header... headers) {
+	public HttpResponse postRequest(Object urlParams, String url, Header... headers) {
 		return this.postRequest(url, urlParams, null, headers);
 	}
 
@@ -428,7 +428,7 @@ public class HttpRequestUtils {
 	 * @param url       请求地址
 	 * @param urlParams url参数
 	 */
-	public CloseableHttpResponse postRequest(Object urlParams, String url) {
+	public HttpResponse postRequest(Object urlParams, String url) {
 		return this.postRequest(url, urlParams, null, (Header[]) null);
 	}
 
@@ -438,7 +438,7 @@ public class HttpRequestUtils {
 	 * @param url     请求地址
 	 * @param headers 请求头
 	 */
-	public CloseableHttpResponse postRequest(String url, Header... headers) {
+	public HttpResponse postRequest(String url, Header... headers) {
 		return this.postRequest(url, null, null, headers);
 	}
 
@@ -447,7 +447,7 @@ public class HttpRequestUtils {
 	 * 
 	 * @param url 请求地址
 	 */
-	public CloseableHttpResponse postRequest(String url) {
+	public HttpResponse postRequest(String url) {
 		return this.postRequest(url, null, null, (Header[]) null);
 	}
 
@@ -459,7 +459,7 @@ public class HttpRequestUtils {
 	 * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数
 	 * @param headers   请求头
 	 */
-	public CloseableHttpResponse putRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
+	public HttpResponse putRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
 		if (urlParams != null) {
 			String urlParam = Qs.stringify(urlParams);
 			if (url.indexOf("?") != -1) {
@@ -471,7 +471,7 @@ public class HttpRequestUtils {
 		if (logger.isTraceEnabled()) {
 			logger.trace("本次请求地址:" + url);
 		}
-		CloseableHttpClient httpclient = this.getHttpClient();
+		HttpClient httpclient = this.getHttpClient();
 		HttpPut httpPut = new HttpPut(url);
 		if (headers != null && headers.length != 0) {
 			httpPut.setHeaders(headers);
@@ -497,7 +497,7 @@ public class HttpRequestUtils {
 				httpPut.setEntity(new StringEntity(bodyStr, ContentType.APPLICATION_JSON));
 			}
 		}
-		CloseableHttpResponse response = null;
+		HttpResponse response = null;
 		try {
 			response = httpclient.execute(httpPut);
 		} catch (IOException e) {
@@ -513,7 +513,7 @@ public class HttpRequestUtils {
 	 * @param urlParams url参数
 	 * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数
 	 */
-	public CloseableHttpResponse putRequest(String url, Object urlParams, Object bodyParam) {
+	public HttpResponse putRequest(String url, Object urlParams, Object bodyParam) {
 		return this.putRequest(url, urlParams, bodyParam, (Header[]) null);
 	}
 
@@ -524,7 +524,7 @@ public class HttpRequestUtils {
 	 * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数
 	 * @param headers   请求头
 	 */
-	public CloseableHttpResponse putRequest(String url, Object bodyParam, Header... headers) {
+	public HttpResponse putRequest(String url, Object bodyParam, Header... headers) {
 		return this.putRequest(url, null, bodyParam, headers);
 	}
 
@@ -534,7 +534,7 @@ public class HttpRequestUtils {
 	 * @param url       请求地址
 	 * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数
 	 */
-	public CloseableHttpResponse putRequest(String url, Object bodyParam) {
+	public HttpResponse putRequest(String url, Object bodyParam) {
 		return this.putRequest(url, null, bodyParam);
 	}
 
@@ -545,7 +545,7 @@ public class HttpRequestUtils {
 	 * @param urlParams url参数
 	 * @param headers   请求头
 	 */
-	public CloseableHttpResponse putRequest(Object urlParams, String url, Header... headers) {
+	public HttpResponse putRequest(Object urlParams, String url, Header... headers) {
 		return this.putRequest(url, urlParams, null, headers);
 	}
 
@@ -555,7 +555,7 @@ public class HttpRequestUtils {
 	 * @param url       请求地址
 	 * @param urlParams url参数
 	 */
-	public CloseableHttpResponse putRequest(Object urlParams, String url) {
+	public HttpResponse putRequest(Object urlParams, String url) {
 		return this.putRequest(url, urlParams, null, (Header[]) null);
 	}
 
@@ -565,7 +565,7 @@ public class HttpRequestUtils {
 	 * @param url     请求地址
 	 * @param headers 请求头
 	 */
-	public CloseableHttpResponse putRequest(String url, Header... headers) {
+	public HttpResponse putRequest(String url, Header... headers) {
 		return this.putRequest(url, null, null, headers);
 	}
 
@@ -574,7 +574,7 @@ public class HttpRequestUtils {
 	 * 
 	 * @param url 请求地址
 	 */
-	public CloseableHttpResponse putRequest(String url) {
+	public HttpResponse putRequest(String url) {
 		return this.putRequest(url, null, null, (Header[]) null);
 	}
 
@@ -715,7 +715,7 @@ public class HttpRequestUtils {
 		return requestConfig;
 	}
 
-	private CloseableHttpClient getHttpClient() {
+	public CloseableHttpClient getHttpClient() {
 		if (this.connectPool == null) {
 			return HttpClients.createDefault();
 		} else {
