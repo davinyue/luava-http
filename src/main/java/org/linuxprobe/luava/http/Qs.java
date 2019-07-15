@@ -10,8 +10,7 @@ import org.linuxprobe.luava.json.JacksonUtils;
 
 /** http请求参数工具 */
 public class Qs {
-
-	public static StringBuilder stringify(String prefix, Map<?, ?> mapParam) {
+	private static StringBuilder stringify(String prefix, Map<?, ?> mapParam) {
 		StringBuilder resultBuilder = new StringBuilder();
 		Set<?> keys = mapParam.keySet();
 		for (Object key : keys) {
@@ -22,7 +21,16 @@ public class Qs {
 					if (sonParam instanceof Map) {
 						resultBuilder.append(stringify(prefix + key.toString() + ".", (Map<?, ?>) sonParam));
 					} else {
-						resultBuilder.append(prefix + key.toString() + "=" + sonParam);
+						resultBuilder.append(prefix + key.toString() + "=" + sonParam + "&");
+					}
+				}
+			} else if (value.getClass().isArray()) {
+				Object[] sonParams = (Object[]) value;
+				for (Object sonParam : sonParams) {
+					if (sonParam instanceof Map) {
+						resultBuilder.append(stringify(prefix + key.toString() + ".", (Map<?, ?>) sonParam));
+					} else {
+						resultBuilder.append(prefix + key.toString() + "=" + sonParam + "&");
 					}
 				}
 			} else if (value instanceof Map) {
