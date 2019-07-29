@@ -20,10 +20,10 @@ public class IdleConnectionEvictor {
             throw new IllegalArgumentException("connectionManager can not be null");
         }
         if (maxIdleTimeMs == null || maxIdleTimeMs <= 0) {
-            maxIdleTimeMs = 30000L;
+            maxIdleTimeMs = 1800000L;
         }
         if (sleepTimeMs == null || sleepTimeMs <= 0) {
-            sleepTimeMs = maxIdleTimeMs;
+            sleepTimeMs = 30000L;
         }
         this.maxIdleTimeMs = maxIdleTimeMs;
         this.sleepTimeMs = sleepTimeMs;
