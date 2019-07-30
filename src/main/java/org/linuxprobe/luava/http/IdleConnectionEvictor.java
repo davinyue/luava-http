@@ -4,13 +4,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.http.conn.HttpClientConnectionManager;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 无效连接回收
  */
 @Slf4j
 public class IdleConnectionEvictor {
-    HttpClientConnectionManager connectionManager;
+    private static final AtomicInteger order = new AtomicInteger(1);
+    private HttpClientConnectionManager connectionManager;
     private final long sleepTimeMs;
     private final long maxIdleTimeMs;
     private Thread thread;
@@ -53,6 +55,7 @@ public class IdleConnectionEvictor {
             }
         };
         this.thread.setDaemon(true);
+        this.thread.setName("http-idle-connection-evictor-" + order.getAndIncrement());
     }
 
     public void start() {
