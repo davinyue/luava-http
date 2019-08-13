@@ -37,7 +37,7 @@
 
     <groupId>org.linuxprobe</groupId>
     <artifactId>luava-http</artifactId>
-    <version>0.0.8.RS2</version>
+    <version>0.0.8.RS3</version>
     <packaging>jar</packaging>
     <name>luava-http</name>
     <description>luava-http</description>
@@ -77,7 +77,7 @@
         <dependency>
             <groupId>org.linuxprobe</groupId>
             <artifactId>luava-json</artifactId>
-            <version>0.0.3.RELEASE</version>
+            <version>0.0.4.RELEASE</version>
         </dependency>
         <dependency>
             <groupId>javax.servlet</groupId>
