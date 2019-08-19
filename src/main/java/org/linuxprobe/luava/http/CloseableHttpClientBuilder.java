@@ -2,6 +2,7 @@ package org.linuxprobe.luava.http;
 
 import org.apache.http.HttpEntityEnclosingRequest;
 import org.apache.http.HttpRequest;
+import org.apache.http.HttpResponse;
 import org.apache.http.NoHttpResponseException;
 import org.apache.http.client.HttpRequestRetryHandler;
 import org.apache.http.client.config.RequestConfig;
@@ -9,6 +10,7 @@ import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.config.SocketConfig;
+import org.apache.http.conn.ConnectionKeepAliveStrategy;
 import org.apache.http.conn.HttpClientConnectionManager;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
@@ -19,6 +21,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultConnectionKeepAliveStrategy;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.protocol.HttpContext;
 import org.apache.http.ssl.SSLContexts;
 
 import javax.net.ssl.SSLContext;
@@ -129,6 +132,19 @@ public class CloseableHttpClientBuilder {
         };
     }
 
+    private static ConnectionKeepAliveStrategy createConnectionKeepAliveStrategy() {
+        return new DefaultConnectionKeepAliveStrategy() {
+            @Override
+            public long getKeepAliveDuration(HttpResponse response, HttpContext context) {
+                long result = super.getKeepAliveDuration(response, context);
+                if (result <= 0) {
+                    result = 60000;
+                }
+                return result;
+            }
+        };
+    }
+
     private static CloseableHttpClient getHttpClient(ConnectPool connectPool) {
         if (connectPool == null) {
             return HttpClients.createDefault();
@@ -138,7 +154,7 @@ public class CloseableHttpClientBuilder {
                     // 配置连接池管理对象
                     .setConnectionManager(clientConnectionManager)
                     // 设置保持长连接策略
-                    .setKeepAliveStrategy(new DefaultConnectionKeepAliveStrategy())
+                    .setKeepAliveStrategy(createConnectionKeepAliveStrategy())
                     .setConnectionReuseStrategy(new DefaultConnectionReuseStrategy())
                     // 默认请求配置
                     .setDefaultRequestConfig(createRequestConfig(connectPool))
