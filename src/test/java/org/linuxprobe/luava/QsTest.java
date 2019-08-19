@@ -3,6 +3,7 @@ package org.linuxprobe.luava;
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicHeader;
 import org.junit.Test;
+import org.linuxprobe.luava.http.ConnectPool;
 import org.linuxprobe.luava.http.HttpRequestUtils;
 import org.linuxprobe.luava.http.Qs;
 
@@ -36,7 +37,7 @@ public class QsTest {
         public HttpRequestUtils httpRequestUtils;
 
         public MyThread() {
-            HttpRequestUtils.ConnectPool connectPool = new HttpRequestUtils.ConnectPool();
+            ConnectPool connectPool = new ConnectPool();
             connectPool.setMaxLifetime(30000);
             connectPool.setCleanSleepTimeMs(10000);
             this.httpRequestUtils = new HttpRequestUtils(connectPool);
