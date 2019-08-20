@@ -132,13 +132,13 @@ public class CloseableHttpClientBuilder {
         };
     }
 
-    private static ConnectionKeepAliveStrategy createConnectionKeepAliveStrategy() {
+    private static ConnectionKeepAliveStrategy createConnectionKeepAliveStrategy(ConnectPool connectPool) {
         return new DefaultConnectionKeepAliveStrategy() {
             @Override
             public long getKeepAliveDuration(HttpResponse response, HttpContext context) {
                 long result = super.getKeepAliveDuration(response, context);
                 if (result <= 0) {
-                    result = 60000;
+                    result = connectPool.getKeepAliveDuration();
                 }
                 return result;
             }
@@ -154,7 +154,7 @@ public class CloseableHttpClientBuilder {
                     // 配置连接池管理对象
                     .setConnectionManager(clientConnectionManager)
                     // 设置保持长连接策略
-                    .setKeepAliveStrategy(createConnectionKeepAliveStrategy())
+                    .setKeepAliveStrategy(createConnectionKeepAliveStrategy(connectPool))
                     .setConnectionReuseStrategy(new DefaultConnectionReuseStrategy())
                     // 默认请求配置
                     .setDefaultRequestConfig(createRequestConfig(connectPool))
