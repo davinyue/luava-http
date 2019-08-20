@@ -160,7 +160,7 @@ public class CloseableHttpClientBuilder {
                     .setDefaultRequestConfig(createRequestConfig(connectPool))
                     // 重试策略
                     .setRetryHandler(createHttpRequestRetryHandler()).build();
-            IdleConnectionEvictor idleConnectionEvictor = new IdleConnectionEvictor(clientConnectionManager, connectPool.getMaxLifetime(), connectPool.getCleanSleepTimeMs());
+            IdleConnectionEvictor idleConnectionEvictor = new IdleConnectionEvictor(clientConnectionManager, connectPool.getMaxIdleTime(), connectPool.getCleanSleepTime());
             idleConnectionEvictor.start();
             return httpClient;
         }

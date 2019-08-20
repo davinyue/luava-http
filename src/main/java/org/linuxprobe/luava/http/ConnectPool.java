@@ -11,27 +11,31 @@ import lombok.Setter;
 public class ConnectPool {
     private static final int defaultConnectTimeout = 5000;
     private static final int defaultSocketTimeout = 10000;
-    private static final int defaultConnectionRequestTimeout = 20000;
+    private static final int defaultConnectionRequestTimeout = 10000;
     private static final int defaultSingleMaxActive = 5;
     private static final int defaultAllMaxActive = 40;
     /**
-     * 连接池默认清理空闲30分钟的连接
+     * 默认长连接持续时间60000, 单位毫秒
      */
-    private static final long defaultMaxLifetime = 1800000;
+    private static final long defaultKeepAliveDuration = 60000;
     /**
-     * 连接池默认清理间隔时间30秒
+     * 连接最大空闲时间, 默认30分钟, 单位毫秒
      */
-    private static final long defaultCleanSleepTimeMs = 30000;
+    private static final long defaultMaxIdleTime = 1800000;
     /**
-     * 连接超时时间,单位毫秒,默认5秒
+     * 连接池默认清理间隔时间, 默认30秒, 单位毫秒
+     */
+    private static final long defaultCleanSleepTime = 30000;
+    /**
+     * 连接超时时间, 默认5秒, 单位毫秒
      */
     private int connectTimeout = defaultConnectTimeout;
     /**
-     * 读取超时时间,单位毫秒,默认10秒
+     * 读取超时时间, 默认10秒, 单位毫秒
      */
     private int socketTimeout = defaultSocketTimeout;
     /**
-     * 从池中获取连接超时时间,单位毫秒,默认20秒
+     * 从池中获取连接超时时间, 默认10秒, 单位毫秒
      */
     private int connectionRequestTimeout = defaultConnectionRequestTimeout;
     /**
@@ -44,11 +48,15 @@ public class ConnectPool {
      */
     private int allMaxActive = defaultAllMaxActive;
     /**
-     * 连最多高存活时间, 单位毫秒, 默认30分钟
+     * 连接最大空闲时间, 默认30分钟, 单位毫秒,
      */
-    private long maxLifetime = defaultMaxLifetime;
+    private long maxIdleTime = defaultMaxIdleTime;
     /**
-     * 连接池默认清理间隔时间30秒
+     * 连接池默认清理间隔时间, 默认30秒, 单位毫秒
      */
-    private long cleanSleepTimeMs = defaultCleanSleepTimeMs;
+    private long cleanSleepTime = defaultCleanSleepTime;
+    /**
+     * 长连接可持续时间, 默认为60秒, 单位毫秒, 在服务器不返回长连接持续时间时, 将使用该属性
+     */
+    private long keepAliveDuration = defaultKeepAliveDuration;
 }
