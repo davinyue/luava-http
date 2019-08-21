@@ -37,7 +37,7 @@
 
     <groupId>org.linuxprobe</groupId>
     <artifactId>luava-http</artifactId>
-    <version>0.0.8.RS4</version>
+    <version>0.0.8.RS5</version>
     <packaging>jar</packaging>
     <name>luava-http</name>
     <description>luava-http</description>
