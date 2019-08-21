@@ -34,6 +34,9 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 
 public class CloseableHttpClientBuilder {
+    private CloseableHttpClientBuilder() {
+    }
+
     /**
      * 创建连接池管理
      */
