@@ -14,6 +14,7 @@ public class ConnectPool {
     private static final int defaultConnectionRequestTimeout = 10000;
     private static final int defaultSingleMaxActive = 5;
     private static final int defaultAllMaxActive = 40;
+    private static final boolean defaultConnectionManagerShared = false;
     /**
      * 默认长连接持续时间60000, 单位毫秒
      */
@@ -59,4 +60,9 @@ public class ConnectPool {
      * 长连接可持续时间, 默认为60秒, 单位毫秒, 在服务器不返回长连接持续时间时, 将使用该属性
      */
     private long keepAliveDuration = defaultKeepAliveDuration;
+    /**
+     * 是否共享连接池管理工具, 默认false ,如果开启, 将不能通过CloseableHttpClient关闭连接池管理工具;<br/>
+     * 使用RestTemplate时建议开启, 关闭时可能会出现出现 connection pool shut down 的异常,
+     */
+    private Boolean connectionManagerShared = defaultConnectionManagerShared;
 }
