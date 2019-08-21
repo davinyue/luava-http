@@ -23,16 +23,16 @@
     </scm>
 
     <distributionManagement>
-        <snapshotRepository>
-            <id>snapshots</id>
-            <name>OSS Snapshots Repository</name>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
         <repository>
-            <id>releases</id>
-            <name>OSS Staging Repository</name>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+            <id>tengyun-public</id>
+            <name>tengyun-maven-public</name>
+            <url>http://111.230.160.199/repository/tengyun-maven-public/</url>
         </repository>
+        <snapshotRepository>
+            <id>tengyun-public</id>
+            <name>tengyun-maven-public</name>
+            <url>http://111.230.160.199/repository/tengyun-maven-public/</url>
+        </snapshotRepository>
     </distributionManagement>
 
     <groupId>org.linuxprobe</groupId>
