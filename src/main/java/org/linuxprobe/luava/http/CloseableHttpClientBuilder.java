@@ -34,6 +34,9 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 
 public class CloseableHttpClientBuilder {
+    private CloseableHttpClientBuilder() {
+    }
+
     /**
      * 创建连接池管理
      */
@@ -145,7 +148,7 @@ public class CloseableHttpClientBuilder {
         };
     }
 
-    private static CloseableHttpClient getHttpClient(ConnectPool connectPool, boolean connectionManagerShared) {
+    private static CloseableHttpClient getHttpClient(ConnectPool connectPool) {
         if (connectPool == null) {
             return HttpClients.createDefault();
         } else {
@@ -161,7 +164,7 @@ public class CloseableHttpClientBuilder {
                     // 重试策略
                     .setRetryHandler(createHttpRequestRetryHandler())
                     // If you set it to true the client won't close the connection manager
-                    .setConnectionManagerShared(connectionManagerShared).build();
+                    .setConnectionManagerShared(connectPool.getConnectionManagerShared()).build();
             IdleConnectionEvictor idleConnectionEvictor = new IdleConnectionEvictor(clientConnectionManager, connectPool.getMaxIdleTime(), connectPool.getCleanSleepTime());
             idleConnectionEvictor.start();
             return httpClient;
@@ -174,16 +177,6 @@ public class CloseableHttpClientBuilder {
      * @param connectPool 连接池配置
      */
     public static CloseableHttpClient builder(ConnectPool connectPool) {
-        return getHttpClient(connectPool, false);
-    }
-
-    /**
-     * 构建连接池
-     *
-     * @param connectPool             连接池配置
-     * @param connectionManagerShared 共享连接池管理 If you set it to true the client won't close the connection manager
-     */
-    public static CloseableHttpClient builder(ConnectPool connectPool, boolean connectionManagerShared) {
-        return getHttpClient(connectPool, connectionManagerShared);
+        return getHttpClient(connectPool);
     }
 }
