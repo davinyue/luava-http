@@ -2,11 +2,15 @@ package org.linuxprobe.luava;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicHeader;
+import org.apache.http.util.EntityUtils;
 import org.junit.Test;
 import org.linuxprobe.luava.http.ConnectPool;
 import org.linuxprobe.luava.http.HttpRequestUtils;
 import org.linuxprobe.luava.http.Qs;
 
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -22,24 +26,28 @@ public class QsTest {
     @Test
     public void testRequest() throws InterruptedException {
         MyThread myThread = new MyThread();
-        Thread[] threads = new Thread[8];
-        for (int i = 0; i < 1; i++) {
+        int threadNum = 200;
+        Thread[] threads = new Thread[threadNum];
+        for (int i = 0; i < threadNum; i++) {
             Thread thread = new Thread(myThread);
+            thread.setName("request-" + (i + 1));
             threads[i] = thread;
             thread.start();
         }
-        for (int i = 0; i < 1; i++) {
+        for (int i = 0; i < threadNum; i++) {
             threads[i].join();
         }
     }
 
     public static class MyThread implements Runnable {
         public HttpRequestUtils httpRequestUtils;
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
         public MyThread() {
             ConnectPool connectPool = new ConnectPool();
-            connectPool.setMaxLifetime(30000);
-            connectPool.setCleanSleepTimeMs(10000);
+            connectPool.setMaxIdleTime(30000);
+            connectPool.setSingleMaxActive(30);
+            connectPool.setCleanSleepTime(10000);
             this.httpRequestUtils = new HttpRequestUtils(connectPool);
         }
 
@@ -69,11 +77,21 @@ public class QsTest {
                 HttpResponse httpResponse = this.httpRequestUtils.postRequest("https://ticket.ybsjyyn.com/mtsale/fsale/orderChange/notice", (Object) param, appId, token);
                 //HttpResponse httpResponse = this.httpRequestUtils.postRequest("http://127.0.0.1:5000/mtsale/fsale/orderChange/notice", (Object) param, appId, token);
                 //HttpRequestUtils.responseDataConversion(httpResponse, Map.class);
-                System.out.println(HttpRequestUtils.responseDataConversion(httpResponse, Map.class));
-                long end = System.currentTimeMillis();
-                System.out.println(Thread.currentThread().getName() + "耗时" + (end - start));
+                //System.out.println(HttpRequestUtils.responseDataConversion(httpResponse, Map.class));
                 try {
-                    Thread.sleep(240000);
+                    EntityUtils.consume(httpResponse.getEntity());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                long end = System.currentTimeMillis();
+                long sub = end - start;
+                if (sub > 1000) {
+                    System.err.println(this.simpleDateFormat.format(new Date()) + ", " + Thread.currentThread().getName() + "耗时" + sub + ", 超时");
+                } else {
+                    System.out.println(this.simpleDateFormat.format(new Date()) + ", " + Thread.currentThread().getName() + "耗时" + sub);
+                }
+                try {
+                    Thread.sleep(5 * 60000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
