@@ -87,9 +87,9 @@ public class HttpRequestUtils {
             }
         }
         if (request.getFirstHeader(SleuthConst.parentSpanIdHeader) == null) {
-            String spanId = MDC.get(SleuthConst.parentSpanIdLogName);
-            if (spanId != null) {
-                request.addHeader(SleuthConst.parentSpanIdHeader, spanId);
+            String parentSpanId = MDC.get(SleuthConst.parentSpanIdLogName);
+            if (parentSpanId != null) {
+                request.addHeader(SleuthConst.parentSpanIdHeader, parentSpanId);
             }
         }
         if (bodyParam != null) {
@@ -325,18 +325,16 @@ public class HttpRequestUtils {
             entityString = EntityUtils.toString(entity);
         } catch (ParseException | IOException e1) {
             throw new RuntimeException(e1);
+        } finally {
+            try {
+                EntityUtils.consume(entity);
+            } catch (IOException ignored) {
+            }
         }
         if (type == String.class) {
             return (T) entityString;
         }
-        T result = null;
-        result = JacksonUtils.conversion(entityString, type);
-        try {
-            EntityUtils.consume(entity);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        return result;
+        return JacksonUtils.conversion(entityString, type);
     }
 
     public CloseableHttpClient getHttpClient() {
@@ -364,7 +362,7 @@ public class HttpRequestUtils {
                 this.httpClient = null;
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("", e);
         }
     }
 
