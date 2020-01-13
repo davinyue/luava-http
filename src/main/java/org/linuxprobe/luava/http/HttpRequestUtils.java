@@ -5,6 +5,7 @@ import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.ParseException;
 import org.apache.http.client.methods.*;
+import org.apache.http.entity.AbstractHttpEntity;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -44,13 +45,14 @@ public class HttpRequestUtils {
     /**
      * http请求
      *
-     * @param method    请求方法
-     * @param url       请求地址
-     * @param urlParams url参数
-     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数
-     * @param headers   请求头
+     * @param method      请求方法
+     * @param url         请求地址
+     * @param urlParams   url参数
+     * @param bodyParam   body参数,如果不是HttpEntity类型,将根据useFormData使用json或formData传递body参数
+     * @param useFormData 使用formData传递参数
+     * @param headers     请求头
      */
-    public CloseableHttpResponse httpRequest(String method, String url, Object urlParams, Object bodyParam, Header... headers) {
+    public CloseableHttpResponse httpRequest(String method, String url, Object urlParams, Object bodyParam, boolean useFormData, Header... headers) {
         if (urlParams != null) {
             String urlParam = Qs.stringify(urlParams);
             if (url.contains("?")) {
@@ -92,26 +94,40 @@ public class HttpRequestUtils {
                 request.addHeader(SleuthConst.parentSpanIdHeader, parentSpanId);
             }
         }
+        // 处理body参数
         if (bodyParam != null) {
+            AbstractHttpEntity bodyEntity = null;
             if (bodyParam instanceof HttpEntity) {
                 if (logger.isTraceEnabled()) {
                     logger.trace("本次请求body参数:" + bodyParam);
                 }
                 request.setEntity((HttpEntity) bodyParam);
             } else {
-                String bodyStr = null;
-                if (bodyParam instanceof String) {
-                    bodyStr = (String) bodyParam;
-                } else if (bodyParam instanceof StringBuilder || bodyParam instanceof StringBuffer) {
-                    bodyStr = bodyParam.toString();
+                if (useFormData) {
+                    String stringify = Qs.stringify(bodyParam);
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("本次请求body参数:" + stringify);
+                    }
+                    bodyEntity = new StringEntity(stringify, "UTF-8");
+                    bodyEntity.setContentType("application/x-www-form-urlencoded");
+                    bodyEntity.setContentEncoding("UTF-8");
                 } else {
-                    bodyStr = JacksonUtils.toJsonString(bodyParam);
+                    String bodyStr = null;
+                    if (bodyParam instanceof String) {
+                        bodyStr = (String) bodyParam;
+                    } else if (bodyParam instanceof StringBuilder || bodyParam instanceof StringBuffer) {
+                        bodyStr = bodyParam.toString();
+                    } else {
+                        bodyStr = JacksonUtils.toJsonString(bodyParam);
+                    }
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("本次请求body参数:" + bodyStr);
+                    }
+                    bodyEntity = new StringEntity(bodyStr, ContentType.APPLICATION_JSON);
                 }
-                if (logger.isTraceEnabled()) {
-                    logger.trace("本次请求body参数:" + bodyStr);
-                }
-                request.setEntity(new StringEntity(bodyStr, ContentType.APPLICATION_JSON));
+                request.setEntity(bodyEntity);
             }
+
         }
         CloseableHttpResponse response = null;
         try {
@@ -120,6 +136,19 @@ public class HttpRequestUtils {
             throw new RuntimeException(e);
         }
         return response;
+    }
+
+    /**
+     * http请求
+     *
+     * @param method    请求方法
+     * @param url       请求地址
+     * @param urlParams url参数
+     * @param bodyParam body参数,如果不是HttpEntity类型,使用json传递body参数
+     * @param headers   请求头
+     */
+    public CloseableHttpResponse httpRequest(String method, String url, Object urlParams, Object bodyParam, Header... headers) {
+        return this.httpRequest(method, url, urlParams, bodyParam, false, headers);
     }
 
     /**
