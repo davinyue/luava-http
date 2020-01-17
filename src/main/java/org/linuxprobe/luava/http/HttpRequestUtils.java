@@ -1,9 +1,6 @@
 package org.linuxprobe.luava.http;
 
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.ParseException;
+import org.apache.http.*;
 import org.apache.http.client.methods.*;
 import org.apache.http.entity.AbstractHttpEntity;
 import org.apache.http.entity.ContentType;
@@ -42,6 +39,15 @@ public class HttpRequestUtils {
     public HttpRequestUtils() {
     }
 
+    private static String getFirstHeader(HttpMessage httpMessage, String headerName) {
+        Header[] headers = httpMessage.getHeaders(headerName);
+        if (headers != null && headers.length > 0) {
+            return headers[0].getValue();
+        } else {
+            return null;
+        }
+    }
+
     /**
      * http请求
      *
@@ -76,19 +82,19 @@ public class HttpRequestUtils {
             request.setHeaders(headers);
         }
         //添加调用链追踪请求头
-        if (request.getFirstHeader(SleuthConst.traceIdHeader) == null) {
+        if (getFirstHeader(request, SleuthConst.traceIdHeader) != null) {
             String traceId = MDC.get(SleuthConst.traceIdLogName);
             if (traceId != null) {
                 request.addHeader(SleuthConst.traceIdHeader, traceId);
             }
         }
-        if (request.getFirstHeader(SleuthConst.spanIdHeader) == null) {
+        if (getFirstHeader(request, SleuthConst.spanIdHeader) != null) {
             String spanId = MDC.get(SleuthConst.spanIdLogName);
             if (spanId != null) {
                 request.addHeader(SleuthConst.spanIdHeader, spanId);
             }
         }
-        if (request.getFirstHeader(SleuthConst.parentSpanIdHeader) == null) {
+        if (getFirstHeader(request, SleuthConst.parentSpanIdHeader) != null) {
             String parentSpanId = MDC.get(SleuthConst.parentSpanIdLogName);
             if (parentSpanId != null) {
                 request.addHeader(SleuthConst.parentSpanIdHeader, parentSpanId);
