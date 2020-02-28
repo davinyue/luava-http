@@ -1,19 +1,22 @@
 package org.linuxprobe.luava;
 
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.entity.ByteArrayEntity;
-import org.apache.http.util.EntityUtils;
 import org.junit.Test;
-import org.linuxprobe.luava.http.HttpRequestUtils;
+import org.linuxprobe.luava.http.Qs;
 
 import java.io.IOException;
+import java.util.HashMap;
 
 public class QsTest {
     @Test
     public void run() throws IOException {
-        HttpRequestUtils httpRequestUtils = new HttpRequestUtils();
-        ByteArrayEntity entity = new ByteArrayEntity(new byte[10000]);
-        CloseableHttpResponse reponse = httpRequestUtils.httpRequest("GET", "https://www.baidu.com", null, entity);
-        System.out.println(EntityUtils.toString(reponse.getEntity()));
+        HashMap<String, Object> map = new HashMap<>();
+        map.put("name", "zhangsan");
+        HashMap<String, Object> students = new HashMap<>();
+        String[] ss = {"a", "b"};
+        map.put("sz", ss);
+        students.put("a", "z");
+        students.put("b", "y");
+        map.put("students", students);
+        System.out.println(Qs.stringify(map));
     }
 }
