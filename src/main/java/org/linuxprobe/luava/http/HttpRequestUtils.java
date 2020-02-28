@@ -1,6 +1,9 @@
 package org.linuxprobe.luava.http;
 
-import org.apache.http.*;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.ParseException;
 import org.apache.http.client.methods.*;
 import org.apache.http.entity.AbstractHttpEntity;
 import org.apache.http.entity.ContentType;
@@ -39,15 +42,6 @@ public class HttpRequestUtils {
     public HttpRequestUtils() {
     }
 
-    private static String getFirstHeader(HttpMessage httpMessage, String headerName) {
-        try {
-            Header header = httpMessage.getFirstHeader(headerName);
-            return header.getValue();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     /**
      * http请求
      *
@@ -79,22 +73,26 @@ public class HttpRequestUtils {
         };
         request.setURI(URI.create(url));
         if (headers != null && headers.length != 0) {
-            request.setHeaders(headers);
+            for (Header header : headers) {
+                if (header != null) {
+                    request.addHeader(header);
+                }
+            }
         }
         //添加调用链追踪请求头
-        if (getFirstHeader(request, SleuthConst.traceIdHeader) != null) {
+        if (request.getFirstHeader(SleuthConst.traceIdHeader) != null) {
             String traceId = MDC.get(SleuthConst.traceIdLogName);
             if (traceId != null) {
                 request.addHeader(SleuthConst.traceIdHeader, traceId);
             }
         }
-        if (getFirstHeader(request, SleuthConst.spanIdHeader) != null) {
+        if (request.getFirstHeader(SleuthConst.spanIdHeader) != null) {
             String spanId = MDC.get(SleuthConst.spanIdLogName);
             if (spanId != null) {
                 request.addHeader(SleuthConst.spanIdHeader, spanId);
             }
         }
-        if (getFirstHeader(request, SleuthConst.parentSpanIdHeader) != null) {
+        if (request.getFirstHeader(SleuthConst.parentSpanIdHeader) != null) {
             String parentSpanId = MDC.get(SleuthConst.parentSpanIdLogName);
             if (parentSpanId != null) {
                 request.addHeader(SleuthConst.parentSpanIdHeader, parentSpanId);
