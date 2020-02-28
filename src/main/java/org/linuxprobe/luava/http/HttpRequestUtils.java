@@ -40,10 +40,10 @@ public class HttpRequestUtils {
     }
 
     private static String getFirstHeader(HttpMessage httpMessage, String headerName) {
-        Header[] headers = httpMessage.getHeaders(headerName);
-        if (headers != null && headers.length > 0) {
-            return headers[0].getValue();
-        } else {
+        try {
+            Header header = httpMessage.getFirstHeader(headerName);
+            return header.getValue();
+        } catch (Exception e) {
             return null;
         }
     }
