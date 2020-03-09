@@ -18,6 +18,9 @@ public class Qs {
         Set<?> keys = mapParam.keySet();
         for (Object key : keys) {
             Object value = mapParam.get(key);
+            if (value == null) {
+                continue;
+            }
             if (value instanceof Collection || value.getClass().isArray()) {
                 Collection<?> sonParams = null;
                 if (value instanceof Collection) {
