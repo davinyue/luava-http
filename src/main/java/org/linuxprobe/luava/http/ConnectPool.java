@@ -2,12 +2,14 @@ package org.linuxprobe.luava.http;
 
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /**
- * 连接池
+ * 连接池配置
  */
 @Setter
 @Getter
+@Accessors(chain = true)
 public class ConnectPool {
     private static final int defaultConnectTimeout = 5000;
     private static final int defaultSocketTimeout = 10000;
@@ -27,6 +29,10 @@ public class ConnectPool {
      * 连接池默认清理间隔时间, 默认30秒, 单位毫秒
      */
     private static final long defaultCleanSleepTime = 30000;
+    /**
+     * 默认失败重试次数
+     */
+    private static final int defaultRetryCount = 3;
     /**
      * 连接超时时间, 默认5秒, 单位毫秒
      */
@@ -65,4 +71,8 @@ public class ConnectPool {
      * 使用RestTemplate时建议开启, 关闭时可能会出现出现 connection pool shut down 的异常,
      */
     private Boolean connectionManagerShared = defaultConnectionManagerShared;
+    /**
+     * 失败重试次数, 默认3
+     */
+    private int retryCount = defaultRetryCount;
 }

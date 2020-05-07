@@ -61,12 +61,12 @@ public class Qs {
             throw new IllegalArgumentException("不支持数组数据");
         } else if (object instanceof Number) {
             throw new IllegalArgumentException("不支持数字数据");
-        } else if (object.getClass().equals(java.lang.Integer.class) || object.getClass().equals(java.lang.Byte.class)
-                || object.getClass().equals(java.lang.Long.class) || object.getClass().equals(java.lang.Double.class)
-                || object.getClass().equals(java.lang.Float.class)
-                || object.getClass().equals(java.lang.Character.class)
-                || object.getClass().equals(java.lang.Short.class)
-                || object.getClass().equals(java.lang.Boolean.class)) {
+        } else if (object.getClass().equals(int.class) || object.getClass().equals(byte.class)
+                || object.getClass().equals(long.class) || object.getClass().equals(double.class)
+                || object.getClass().equals(float.class)
+                || object.getClass().equals(char.class)
+                || object.getClass().equals(short.class)
+                || object.getClass().equals(boolean.class)) {
             throw new IllegalArgumentException("不支持基本类型数据");
         } else {
             if (object instanceof String) {

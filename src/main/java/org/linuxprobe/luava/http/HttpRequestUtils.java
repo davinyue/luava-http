@@ -1,5 +1,7 @@
 package org.linuxprobe.luava.http;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JavaType;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -17,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.net.URI;
 
 public class HttpRequestUtils {
@@ -345,13 +348,7 @@ public class HttpRequestUtils {
         return this.patchRequest(url, null, bodyParam, headers);
     }
 
-    /**
-     * 把返回数据转换为指定对象
-     */
-    public static <T> T responseDataConversion(HttpResponse response, Class<T> type) {
-        if (response == null) {
-            return null;
-        }
+    private static String responseToString(HttpResponse response) {
         HttpEntity entity = response.getEntity();
         String entityString = null;
         try {
@@ -364,10 +361,63 @@ public class HttpRequestUtils {
             } catch (IOException ignored) {
             }
         }
-        if (type == String.class) {
-            return (T) entityString;
-        }
-        return JacksonUtils.conversion(entityString, type);
+        return entityString;
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataConversion(HttpResponse response, Class<T> type) {
+        return JacksonUtils.conversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataSnakeConversion(HttpResponse response, Class<T> type) {
+        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataConversion(HttpResponse response, Type type) {
+        return JacksonUtils.conversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataSnakeConversion(HttpResponse response, Type type) {
+        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataConversion(HttpResponse response, JavaType type) {
+        return JacksonUtils.conversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataSnakeConversion(HttpResponse response, JavaType type) {
+        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataConversion(HttpResponse response, TypeReference<T> type) {
+        return JacksonUtils.conversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataSnakeConversion(HttpResponse response, TypeReference<T> type) {
+        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
     }
 
     public CloseableHttpClient getHttpClient() {

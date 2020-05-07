@@ -34,7 +34,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 
 public class CloseableHttpClientBuilder {
-    private CloseableHttpClientBuilder() {
+    public CloseableHttpClientBuilder() {
     }
 
     /**
@@ -98,11 +98,11 @@ public class CloseableHttpClientBuilder {
     /**
      * 创建重试策略
      */
-    private static HttpRequestRetryHandler createHttpRequestRetryHandler() {
+    private static HttpRequestRetryHandler createHttpRequestRetryHandler(ConnectPool connectPool) {
         // 自定义重试策略
         return (exception, executionCount, context) -> {
-            // 如果已经重试了3次，就放弃
-            if (executionCount >= 3) {
+            // 如果重试次数大于等于规定次数
+            if (executionCount >= connectPool.getRetryCount()) {
                 return false;
             }
             // 如果服务器丢掉了连接，那么就重试
@@ -162,11 +162,11 @@ public class CloseableHttpClientBuilder {
                     // 默认请求配置
                     .setDefaultRequestConfig(createRequestConfig(connectPool))
                     // 重试策略
-                    .setRetryHandler(createHttpRequestRetryHandler())
+                    .setRetryHandler(createHttpRequestRetryHandler(connectPool))
                     // If you set it to true the client won't close the connection manager
                     .setConnectionManagerShared(connectPool.getConnectionManagerShared()).build();
-            IdleConnectionEvictor idleConnectionEvictor = new IdleConnectionEvictor(clientConnectionManager, connectPool.getMaxIdleTime(), connectPool.getCleanSleepTime());
-            idleConnectionEvictor.start();
+            IdleConnectionRecover idleConnectionRecover = new IdleConnectionRecover(clientConnectionManager, connectPool.getMaxIdleTime(), connectPool.getCleanSleepTime());
+            idleConnectionRecover.start();
             return httpClient;
         }
     }
