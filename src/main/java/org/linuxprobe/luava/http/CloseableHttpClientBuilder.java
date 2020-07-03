@@ -2,15 +2,12 @@ package org.linuxprobe.luava.http;
 
 import org.apache.http.HttpEntityEnclosingRequest;
 import org.apache.http.HttpRequest;
-import org.apache.http.HttpResponse;
 import org.apache.http.NoHttpResponseException;
 import org.apache.http.client.HttpRequestRetryHandler;
-import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.config.SocketConfig;
-import org.apache.http.conn.ConnectionKeepAliveStrategy;
 import org.apache.http.conn.HttpClientConnectionManager;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
@@ -18,42 +15,31 @@ import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.DefaultConnectionReuseStrategy;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.DefaultConnectionKeepAliveStrategy;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.protocol.HttpContext;
-import org.apache.http.ssl.SSLContexts;
 
-import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
 import java.io.InterruptedIOException;
 import java.net.UnknownHostException;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.TimeUnit;
 
-public class CloseableHttpClientBuilder {
+public class CloseableHttpClientBuilder extends BaseBuilder {
     public CloseableHttpClientBuilder() {
     }
+
+    private ConnectPool connectPool;
 
     /**
      * 创建连接池管理
      */
-    private static HttpClientConnectionManager createClientConnectionManager(ConnectPool connectPool) {
+    private HttpClientConnectionManager createClientConnectionManager(ConnectPool connectPool) {
         PoolingHttpClientConnectionManager clientConnectionManager;
-        // 这里设置信任所有证书
-        SSLContext sslContext;
-        try {
-            // 信任所有
-            sslContext = SSLContexts.custom().loadTrustMaterial(null, (chain, authType) -> true).build();
-        } catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e) {
-            throw new RuntimeException(e);
-        }
-        SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
-
+        SSLConnectionSocketFactory sslSf = new SSLConnectionSocketFactory(this.createSSLContext(),
+                NoopHostnameVerifier.INSTANCE);
         Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
-                .register("https", sslsf).register("http", PlainConnectionSocketFactory.getSocketFactory()).build();
+                .register("https", sslSf).register("http", PlainConnectionSocketFactory.getSocketFactory())
+                .build();
         // 配置连接池
         clientConnectionManager = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
         // 最大连接
@@ -83,22 +69,9 @@ public class CloseableHttpClientBuilder {
     }
 
     /**
-     * 创建Http请求配置参数
-     */
-    private static RequestConfig createRequestConfig(ConnectPool connectPool) {
-        return RequestConfig.custom()
-                // 连接超时时间
-                .setConnectTimeout(connectPool.getConnectTimeout())
-                // 读超时时间（等待数据超时时间
-                .setSocketTimeout(connectPool.getSocketTimeout())
-                // 从池中获取连接超时时间
-                .setConnectionRequestTimeout(connectPool.getConnectionRequestTimeout()).build();
-    }
-
-    /**
      * 创建重试策略
      */
-    private static HttpRequestRetryHandler createHttpRequestRetryHandler(ConnectPool connectPool) {
+    private HttpRequestRetryHandler createHttpRequestRetryHandler(ConnectPool connectPool) {
         // 自定义重试策略
         return (exception, executionCount, context) -> {
             // 如果重试次数大于等于规定次数
@@ -135,48 +108,36 @@ public class CloseableHttpClientBuilder {
         };
     }
 
-    private static ConnectionKeepAliveStrategy createConnectionKeepAliveStrategy(ConnectPool connectPool) {
-        return new DefaultConnectionKeepAliveStrategy() {
-            @Override
-            public long getKeepAliveDuration(HttpResponse response, HttpContext context) {
-                long result = super.getKeepAliveDuration(response, context);
-                if (result <= 0) {
-                    result = connectPool.getKeepAliveDuration();
-                }
-                return result;
-            }
-        };
-    }
-
-    private static CloseableHttpClient getHttpClient(ConnectPool connectPool) {
-        if (connectPool == null) {
+    private CloseableHttpClient getHttpClient() {
+        if (this.connectPool == null) {
             return HttpClients.createDefault();
         } else {
-            HttpClientConnectionManager clientConnectionManager = createClientConnectionManager(connectPool);
-            CloseableHttpClient httpClient = HttpClients.custom()
+            return HttpClients.custom()
                     // 配置连接池管理对象
-                    .setConnectionManager(clientConnectionManager)
+                    .setConnectionManager(this.createClientConnectionManager(this.connectPool))
                     // 设置保持长连接策略
-                    .setKeepAliveStrategy(createConnectionKeepAliveStrategy(connectPool))
+                    .setKeepAliveStrategy(this.createConnectionKeepAliveStrategy(this.connectPool))
                     .setConnectionReuseStrategy(new DefaultConnectionReuseStrategy())
                     // 默认请求配置
-                    .setDefaultRequestConfig(createRequestConfig(connectPool))
+                    .setDefaultRequestConfig(this.createRequestConfig(this.connectPool))
                     // 重试策略
-                    .setRetryHandler(createHttpRequestRetryHandler(connectPool))
+                    .setRetryHandler(this.createHttpRequestRetryHandler(this.connectPool))
                     // If you set it to true the client won't close the connection manager
-                    .setConnectionManagerShared(connectPool.getConnectionManagerShared()).build();
-            IdleConnectionRecover idleConnectionRecover = new IdleConnectionRecover(clientConnectionManager, connectPool.getMaxIdleTime(), connectPool.getCleanSleepTime());
-            idleConnectionRecover.start();
-            return httpClient;
+                    .setConnectionManagerShared(this.connectPool.getConnectionManagerShared())
+                    // 空闲和无效连接释放
+                    .evictIdleConnections(this.connectPool.getMaxIdleTime(), TimeUnit.MILLISECONDS).build();
         }
+    }
+
+    public CloseableHttpClientBuilder setConnectPool(ConnectPool connectPool) {
+        this.connectPool = connectPool;
+        return this;
     }
 
     /**
      * 构建连接池
-     *
-     * @param connectPool 连接池配置
      */
-    public static CloseableHttpClient builder(ConnectPool connectPool) {
-        return getHttpClient(connectPool);
+    public CloseableHttpClient build() {
+        return this.getHttpClient();
     }
 }

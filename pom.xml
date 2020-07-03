@@ -37,7 +37,7 @@
 
     <groupId>org.linuxprobe</groupId>
     <artifactId>luava-http</artifactId>
-    <version>0.0.9.RS6</version>
+    <version>0.0.9.RS7</version>
     <packaging>jar</packaging>
     <name>luava-http</name>
     <description>luava-http</description>
@@ -75,9 +75,14 @@
             <version>4.5.12</version>
         </dependency>
         <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpasyncclient</artifactId>
+            <version>4.1.4</version>
+        </dependency>
+        <dependency>
             <groupId>org.linuxprobe</groupId>
             <artifactId>luava-json</artifactId>
-            <version>0.0.7.RELEASE</version>
+            <version>0.0.8.RELEASE</version>
         </dependency>
     </dependencies>
     <build>

@@ -21,9 +21,10 @@ import org.slf4j.MDC;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
+import java.net.URL;
 
 public class HttpRequestUtils {
-    private static Logger logger = LoggerFactory.getLogger(HttpRequestUtils.class);
+    private static final Logger logger = LoggerFactory.getLogger(HttpRequestUtils.class);
     private volatile CloseableHttpClient httpClient;
     private ConnectPool connectPool;
 
@@ -55,7 +56,8 @@ public class HttpRequestUtils {
      * @param useFormData 使用formData传递参数
      * @param headers     请求头
      */
-    public CloseableHttpResponse httpRequest(String method, String url, Object urlParams, Object bodyParam, boolean useFormData, Header... headers) {
+    public CloseableHttpResponse httpRequest(String method, String url, Object urlParams, Object bodyParam,
+                                             boolean useFormData, Header... headers) {
         if (urlParams != null) {
             String urlParam = Qs.stringify(urlParams);
             if (url.contains("?")) {
@@ -74,7 +76,14 @@ public class HttpRequestUtils {
                 return method;
             }
         };
-        request.setURI(URI.create(url));
+        try {
+            URL requestUrl = new URL(url);
+            URI requestUri = new URI(requestUrl.getProtocol(), requestUrl.getHost(), requestUrl.getPath(),
+                    requestUrl.getQuery(), null);
+            request.setURI(requestUri);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         if (headers != null && headers.length != 0) {
             for (Header header : headers) {
                 if (header != null) {
@@ -154,7 +163,8 @@ public class HttpRequestUtils {
      * @param bodyParam body参数,如果不是HttpEntity类型,使用json传递body参数
      * @param headers   请求头
      */
-    public CloseableHttpResponse httpRequest(String method, String url, Object urlParams, Object bodyParam, Header... headers) {
+    public CloseableHttpResponse httpRequest(String method, String url, Object urlParams, Object bodyParam,
+                                             Header... headers) {
         return this.httpRequest(method, url, urlParams, bodyParam, false, headers);
     }
 
@@ -284,7 +294,8 @@ public class HttpRequestUtils {
      *
      * @param url       请求地址, 不可为null
      * @param urlParams url参数, 可为null
-     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数, 可为null
+     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数,
+     *                  可为null
      * @param headers   请求头, 可为null
      */
     public CloseableHttpResponse postRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
@@ -295,7 +306,8 @@ public class HttpRequestUtils {
      * post请求
      *
      * @param url       请求地址, 不可为null
-     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数, 可为null
+     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数,
+     *                  可为null
      * @param headers   请求头, 可为null
      */
     public CloseableHttpResponse postRequest(String url, Object bodyParam, Header... headers) {
@@ -307,7 +319,8 @@ public class HttpRequestUtils {
      *
      * @param url       请求地址, 不可为null
      * @param urlParams url参数, 可为null
-     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数, 可为null
+     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数,
+     *                  可为null
      * @param headers   请求头, 可为null
      */
     public CloseableHttpResponse putRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
@@ -318,7 +331,8 @@ public class HttpRequestUtils {
      * put请求
      *
      * @param url       请求地址, 不可为null
-     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数, 可为null
+     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数,
+     *                  可为null
      * @param headers   请求头, 可为null
      */
     public CloseableHttpResponse putRequest(String url, Object bodyParam, Header... headers) {
@@ -330,7 +344,8 @@ public class HttpRequestUtils {
      *
      * @param url       请求地址, 不可为null
      * @param urlParams url参数, 可为null
-     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数, 可为null
+     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数,
+     *                  可为null
      * @param headers   请求头, 可为null
      */
     public CloseableHttpResponse patchRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
@@ -341,7 +356,8 @@ public class HttpRequestUtils {
      * patch请求
      *
      * @param url       请求地址, 不可为null
-     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数, 可为null
+     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数,
+     *                  可为null
      * @param headers   请求头, 可为null
      */
     public CloseableHttpResponse patchRequest(String url, Object bodyParam, Header... headers) {
@@ -427,7 +443,7 @@ public class HttpRequestUtils {
             if (this.httpClient == null) {
                 synchronized (this) {
                     if (this.httpClient == null) {
-                        this.httpClient = CloseableHttpClientBuilder.builder(this.connectPool);
+                        this.httpClient = new CloseableHttpClientBuilder().setConnectPool(this.connectPool).build();
                     }
                 }
             }
