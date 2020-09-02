@@ -44,6 +44,80 @@ public class HttpRequestUtils {
     public HttpRequestUtils() {
     }
 
+    private static String responseToString(CloseableHttpResponse response) {
+        HttpEntity entity = response.getEntity();
+        String entityString;
+        try {
+            entityString = EntityUtils.toString(entity);
+        } catch (ParseException | IOException e1) {
+            throw new RuntimeException(e1);
+        } finally {
+            try {
+                EntityUtils.consume(entity);
+                response.close();
+            } catch (IOException e) {
+                log.error("httpClient释放连接失败", e);
+            }
+        }
+        return entityString;
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataConversion(CloseableHttpResponse response, Class<T> type) {
+        return JacksonUtils.conversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataSnakeConversion(CloseableHttpResponse response, Class<T> type) {
+        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataConversion(CloseableHttpResponse response, Type type) {
+        return JacksonUtils.conversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataSnakeConversion(CloseableHttpResponse response, Type type) {
+        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataConversion(CloseableHttpResponse response, JavaType type) {
+        return JacksonUtils.conversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataSnakeConversion(CloseableHttpResponse response, JavaType type) {
+        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataConversion(CloseableHttpResponse response, TypeReference<T> type) {
+        return JacksonUtils.conversion(responseToString(response), type);
+    }
+
+    /**
+     * 把返回数据转换为指定对象
+     */
+    public static <T> T responseDataSnakeConversion(CloseableHttpResponse response, TypeReference<T> type) {
+        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
+    }
+
     /**
      * http请求
      *
@@ -149,7 +223,6 @@ public class HttpRequestUtils {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        request.releaseConnection();
         return response;
     }
 
@@ -287,7 +360,6 @@ public class HttpRequestUtils {
         return this.optionsRequest(url, null);
     }
 
-
     /**
      * post请求
      *
@@ -361,80 +433,6 @@ public class HttpRequestUtils {
      */
     public CloseableHttpResponse patchRequest(String url, Object bodyParam, Header... headers) {
         return this.patchRequest(url, null, bodyParam, headers);
-    }
-
-    private static String responseToString(CloseableHttpResponse response) {
-        HttpEntity entity = response.getEntity();
-        String entityString = null;
-        try {
-            entityString = EntityUtils.toString(entity);
-        } catch (ParseException | IOException e1) {
-            throw new RuntimeException(e1);
-        } finally {
-            try {
-                EntityUtils.consume(entity);
-                response.close();
-            } catch (IOException e) {
-                log.error("httpClient释放连接失败", e);
-            }
-        }
-        return entityString;
-    }
-
-    /**
-     * 把返回数据转换为指定对象
-     */
-    public static <T> T responseDataConversion(CloseableHttpResponse response, Class<T> type) {
-        return JacksonUtils.conversion(responseToString(response), type);
-    }
-
-    /**
-     * 把返回数据转换为指定对象
-     */
-    public static <T> T responseDataSnakeConversion(CloseableHttpResponse response, Class<T> type) {
-        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
-    }
-
-    /**
-     * 把返回数据转换为指定对象
-     */
-    public static <T> T responseDataConversion(CloseableHttpResponse response, Type type) {
-        return JacksonUtils.conversion(responseToString(response), type);
-    }
-
-    /**
-     * 把返回数据转换为指定对象
-     */
-    public static <T> T responseDataSnakeConversion(CloseableHttpResponse response, Type type) {
-        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
-    }
-
-    /**
-     * 把返回数据转换为指定对象
-     */
-    public static <T> T responseDataConversion(CloseableHttpResponse response, JavaType type) {
-        return JacksonUtils.conversion(responseToString(response), type);
-    }
-
-    /**
-     * 把返回数据转换为指定对象
-     */
-    public static <T> T responseDataSnakeConversion(CloseableHttpResponse response, JavaType type) {
-        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
-    }
-
-    /**
-     * 把返回数据转换为指定对象
-     */
-    public static <T> T responseDataConversion(CloseableHttpResponse response, TypeReference<T> type) {
-        return JacksonUtils.conversion(responseToString(response), type);
-    }
-
-    /**
-     * 把返回数据转换为指定对象
-     */
-    public static <T> T responseDataSnakeConversion(CloseableHttpResponse response, TypeReference<T> type) {
-        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
     }
 
     public CloseableHttpClient getHttpClient() {
