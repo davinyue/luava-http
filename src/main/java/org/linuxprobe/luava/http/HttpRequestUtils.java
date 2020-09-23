@@ -19,7 +19,6 @@ import org.slf4j.MDC;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
-import java.net.URL;
 
 @Slf4j
 public class HttpRequestUtils {
@@ -148,14 +147,7 @@ public class HttpRequestUtils {
                 return method;
             }
         };
-        try {
-            URL requestUrl = new URL(url);
-            URI requestUri = new URI(requestUrl.getProtocol(), requestUrl.getHost(), requestUrl.getPath(),
-                    requestUrl.getQuery(), null);
-            request.setURI(requestUri);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        request.setURI(URI.create(url));
         if (headers != null && headers.length != 0) {
             for (Header header : headers) {
                 if (header != null) {
