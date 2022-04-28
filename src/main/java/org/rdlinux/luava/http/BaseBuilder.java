@@ -1,4 +1,4 @@
-package org.linuxprobe.luava.http;
+package org.rdlinux.luava.http;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.config.RequestConfig;

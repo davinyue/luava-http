@@ -2,9 +2,9 @@
 http请求工具
 ```
 <dependency>
-    <groupId>org.linuxprobe</groupId>
+    <groupId>org.rdlinux</groupId>
     <artifactId>luava-http</artifactId>
-    <version>0.0.6.RELEASE</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 

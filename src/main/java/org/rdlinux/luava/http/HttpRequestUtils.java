@@ -1,4 +1,4 @@
-package org.linuxprobe.luava.http;
+package org.rdlinux.luava.http;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JavaType;
@@ -13,7 +13,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-import org.linuxprobe.luava.json.JacksonUtils;
+import org.rdlinux.luava.json.JacksonUtils;
 import org.slf4j.MDC;
 
 import java.io.IOException;

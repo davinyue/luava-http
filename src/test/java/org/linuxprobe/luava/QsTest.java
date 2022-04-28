@@ -3,8 +3,8 @@ package org.linuxprobe.luava;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.util.EntityUtils;
 import org.junit.Test;
-import org.linuxprobe.luava.http.HttpRequestUtils;
-import org.linuxprobe.luava.http.Qs;
+import org.rdlinux.luava.http.HttpRequestUtils;
+import org.rdlinux.luava.http.Qs;
 
 import java.io.IOException;
 import java.util.HashMap;

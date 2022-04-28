@@ -1,4 +1,4 @@
-package org.linuxprobe.luava.http;
+package org.rdlinux.luava.http;
 
 public class SleuthConst {
     public static final String traceIdHeader = "x-b3-traceid";

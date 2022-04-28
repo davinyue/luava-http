@@ -1,6 +1,7 @@
-package org.linuxprobe.luava.http;
+package org.rdlinux.luava.http;
 
-import org.linuxprobe.luava.json.JacksonUtils;
+
+import org.rdlinux.luava.json.JacksonUtils;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;

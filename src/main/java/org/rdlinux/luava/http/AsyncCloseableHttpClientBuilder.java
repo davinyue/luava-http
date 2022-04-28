@@ -1,4 +1,4 @@
-package org.linuxprobe.luava.http;
+package org.rdlinux.luava.http;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.config.ConnectionConfig;
@@ -10,18 +10,17 @@ import org.apache.http.impl.nio.conn.PoolingNHttpClientConnectionManager;
 import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.nio.conn.NHttpClientConnectionManager;
-import org.apache.http.nio.reactor.ConnectingIOReactor;
 import org.apache.http.nio.reactor.IOReactorException;
+import org.apache.http.nio.reactor.IOReactorExceptionHandler;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Slf4j
 public class AsyncCloseableHttpClientBuilder extends BaseBuilder {
-    AsyncCloseableHttpClientBuilder() {
-    }
-
     private ConnectPool connectPool;
 
     /**
@@ -31,16 +30,29 @@ public class AsyncCloseableHttpClientBuilder extends BaseBuilder {
         PoolingNHttpClientConnectionManager clientConnectionManager;
         //配置io线程
         IOReactorConfig ioReactorConfig = IOReactorConfig.custom().
-                setIoThreadCount(Runtime.getRuntime().availableProcessors())
+                setIoThreadCount(Runtime.getRuntime().availableProcessors() * 2)
                 .setSoKeepAlive(true)
                 .build();
         //设置连接池大小
-        ConnectingIOReactor ioReactor = null;
+        DefaultConnectingIOReactor ioReactor;
         try {
-            ioReactor = new DefaultConnectingIOReactor(ioReactorConfig);
+            ioReactor = new DefaultConnectingIOReactor(ioReactorConfig, new NamedThreadFactory("async-http-client"));
         } catch (IOReactorException e) {
             throw new RuntimeException(e);
         }
+        ioReactor.setExceptionHandler(new IOReactorExceptionHandler() {
+            @Override
+            public boolean handle(IOException ex) {
+                AsyncCloseableHttpClientBuilder.log.warn("IOReactor encountered a checked exception", ex);
+                return true; // Return true to note this exception as handled, it will not be re-thrown
+            }
+
+            @Override
+            public boolean handle(RuntimeException ex) {
+                AsyncCloseableHttpClientBuilder.log.warn("IOReactor encountered a runtime exception", ex);
+                return true; // Return true to note this exception as handled, it will not be re-thrown
+            }
+        });
         // 配置连接池
         clientConnectionManager = new PoolingNHttpClientConnectionManager(ioReactor);
         // 最大连接
@@ -82,6 +94,18 @@ public class AsyncCloseableHttpClientBuilder extends BaseBuilder {
             idleConnectionRecover.start();
             return client;
         }
+    }
+
+    public AsyncCloseableHttpClientBuilder setConnectPool(ConnectPool connectPool) {
+        this.connectPool = connectPool;
+        return this;
+    }
+
+    /**
+     * 构建连接池
+     */
+    public CloseableHttpAsyncClient build() {
+        return this.getAsyncHttpClient();
     }
 
     /**
@@ -144,18 +168,5 @@ public class AsyncCloseableHttpClientBuilder extends BaseBuilder {
         public void start() {
             this.thread.start();
         }
-    }
-
-
-    public AsyncCloseableHttpClientBuilder setConnectPool(ConnectPool connectPool) {
-        this.connectPool = connectPool;
-        return this;
-    }
-
-    /**
-     * 构建连接池
-     */
-    public CloseableHttpAsyncClient build() {
-        return this.getAsyncHttpClient();
     }
 }
