@@ -2,7 +2,6 @@ package org.rdlinux.luava.http;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JavaType;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.ParseException;
@@ -14,14 +13,17 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.rdlinux.luava.json.JacksonUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
 
-@Slf4j
+
 public class HttpRequestUtils {
+    private static final Logger log = LoggerFactory.getLogger(HttpRequestUtils.class);
     private volatile CloseableHttpClient httpClient;
     private ConnectPool connectPool;
 
@@ -192,7 +194,7 @@ public class HttpRequestUtils {
                     bodyEntity.setContentType("application/x-www-form-urlencoded");
                     bodyEntity.setContentEncoding("UTF-8");
                 } else {
-                    String bodyStr = null;
+                    String bodyStr;
                     if (bodyParam instanceof String) {
                         bodyStr = (String) bodyParam;
                     } else if (bodyParam instanceof StringBuilder || bodyParam instanceof StringBuffer) {

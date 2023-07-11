@@ -1,15 +1,8 @@
 package org.rdlinux.luava.http;
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.experimental.Accessors;
-
 /**
  * 连接池配置
  */
-@Setter
-@Getter
-@Accessors(chain = true)
 public class ConnectPool {
     private static final int defaultConnectTimeout = 5000;
     private static final int defaultSocketTimeout = 10000;
@@ -75,4 +68,94 @@ public class ConnectPool {
      * 失败重试次数, 默认3
      */
     private int retryCount = defaultRetryCount;
+
+    public int getConnectTimeout() {
+        return this.connectTimeout;
+    }
+
+    public ConnectPool setConnectTimeout(int connectTimeout) {
+        this.connectTimeout = connectTimeout;
+        return this;
+    }
+
+    public int getSocketTimeout() {
+        return this.socketTimeout;
+    }
+
+    public ConnectPool setSocketTimeout(int socketTimeout) {
+        this.socketTimeout = socketTimeout;
+        return this;
+    }
+
+    public int getConnectionRequestTimeout() {
+        return this.connectionRequestTimeout;
+    }
+
+    public ConnectPool setConnectionRequestTimeout(int connectionRequestTimeout) {
+        this.connectionRequestTimeout = connectionRequestTimeout;
+        return this;
+    }
+
+    public int getSingleMaxActive() {
+        return this.singleMaxActive;
+    }
+
+    public ConnectPool setSingleMaxActive(int singleMaxActive) {
+        this.singleMaxActive = singleMaxActive;
+        return this;
+    }
+
+    public int getAllMaxActive() {
+        return this.allMaxActive;
+    }
+
+    public ConnectPool setAllMaxActive(int allMaxActive) {
+        this.allMaxActive = allMaxActive;
+        return this;
+    }
+
+    public long getMaxIdleTime() {
+        return this.maxIdleTime;
+    }
+
+    public ConnectPool setMaxIdleTime(long maxIdleTime) {
+        this.maxIdleTime = maxIdleTime;
+        return this;
+    }
+
+    public long getCleanSleepTime() {
+        return this.cleanSleepTime;
+    }
+
+    public ConnectPool setCleanSleepTime(long cleanSleepTime) {
+        this.cleanSleepTime = cleanSleepTime;
+        return this;
+    }
+
+    public long getKeepAliveDuration() {
+        return this.keepAliveDuration;
+    }
+
+    public ConnectPool setKeepAliveDuration(long keepAliveDuration) {
+        this.keepAliveDuration = keepAliveDuration;
+        return this;
+    }
+
+    public Boolean getConnectionManagerShared() {
+        return this.connectionManagerShared;
+    }
+
+    public ConnectPool setConnectionManagerShared(Boolean connectionManagerShared) {
+        this.connectionManagerShared = connectionManagerShared;
+        return this;
+    }
+
+    public int getRetryCount() {
+        return this.retryCount;
+    }
+
+    public ConnectPool setRetryCount(int retryCount) {
+        this.retryCount = retryCount;
+        return this;
+    }
 }

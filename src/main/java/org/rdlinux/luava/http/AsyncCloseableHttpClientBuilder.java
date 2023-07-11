@@ -1,6 +1,5 @@
 package org.rdlinux.luava.http;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.http.config.ConnectionConfig;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.DefaultConnectionReuseStrategy;
@@ -12,6 +11,8 @@ import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.nio.conn.NHttpClientConnectionManager;
 import org.apache.http.nio.reactor.IOReactorException;
 import org.apache.http.nio.reactor.IOReactorExceptionHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -19,8 +20,8 @@ import java.io.StringWriter;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Slf4j
 public class AsyncCloseableHttpClientBuilder extends BaseBuilder {
+    private static final Logger log = LoggerFactory.getLogger(AsyncCloseableHttpClientBuilder.class);
     private ConnectPool connectPool;
 
     /**
@@ -111,8 +112,8 @@ public class AsyncCloseableHttpClientBuilder extends BaseBuilder {
     /**
      * 无效连接回收
      */
-    @Slf4j
     public static class IdleConnectionRecover {
+        private static final Logger log = LoggerFactory.getLogger(IdleConnectionRecover.class);
         private static final AtomicInteger order = new AtomicInteger(1);
         private final NHttpClientConnectionManager connectionManager;
         private final long sleepTimeMs;

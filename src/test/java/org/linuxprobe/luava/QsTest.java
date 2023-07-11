@@ -1,9 +1,6 @@
 package org.linuxprobe.luava;
 
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.util.EntityUtils;
 import org.junit.Test;
-import org.rdlinux.luava.http.HttpRequestUtils;
 import org.rdlinux.luava.http.Qs;
 
 import java.io.IOException;
@@ -21,12 +18,5 @@ public class QsTest {
         students.put("b", "y");
         map.put("students", students);
         System.out.println(Qs.stringify(map));
-    }
-
-    @Test
-    public void requestTest() throws IOException {
-        CloseableHttpResponse post = new HttpRequestUtils().getRequest(
-                "http://test-gas-station.ybsjyyn.com/login?clientName=tengyun_oauth2");
-        System.out.println(EntityUtils.toString(post.getEntity()));
     }
 }
