@@ -90,7 +90,7 @@
         <dependency>
             <groupId>org.rdlinux</groupId>
             <artifactId>luava-json</artifactId>
-            <version>0.0.9.RELEASE</version>
+            <version>0.1.0</version>
         </dependency>
     </dependencies>
     <build>
