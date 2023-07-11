@@ -18,7 +18,7 @@
     <scm>
         <tag>master</tag>
         <connection>https://github.com/davinyue/luava-http.git</connection>
-        <developerConnection>https://github.com/linuxprobe-org</developerConnection>
+        <developerConnection>https://github.com/davinyue</developerConnection>
         <url>https://github.com/davinyue/luava-http.git</url>
     </scm>
 
