@@ -10,7 +10,6 @@ import org.apache.http.entity.AbstractHttpEntity;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.rdlinux.luava.json.JacksonUtils;
 import org.slf4j.Logger;
@@ -22,10 +21,26 @@ import java.lang.reflect.Type;
 import java.net.URI;
 
 
-public class HttpRequestUtils {
+/**
+ * 基于Apache HttpClient的HTTP请求工具。
+ */
+public class HttpRequestUtils implements AutoCloseable {
+    /**
+     * 日志记录器
+     */
     private static final Logger log = LoggerFactory.getLogger(HttpRequestUtils.class);
+    /**
+     * 当前工具持有的HTTP客户端
+     */
     private volatile CloseableHttpClient httpClient;
-    private ConnectPool connectPool;
+    /**
+     * 连接池配置
+     */
+    private final ConnectPool connectPool;
+    /**
+     * 工具关闭状态
+     */
+    private volatile boolean closed;
 
     /**
      * 构造一个使用连接池的http请求工具
@@ -40,9 +55,10 @@ public class HttpRequestUtils {
     }
 
     /**
-     * 构造一个不使用连接池的http请求工具
+     * 使用默认连接池配置构造HTTP请求工具。
      */
     public HttpRequestUtils() {
+        this(null);
     }
 
     private static String responseToString(CloseableHttpResponse response) {
@@ -128,6 +144,7 @@ public class HttpRequestUtils {
      * @param bodyParam   body参数,如果不是HttpEntity类型,将根据useFormData使用json或formData传递body参数
      * @param useFormData 使用formData传递参数
      * @param headers     请求头
+     * @return HTTP响应，调用方必须关闭该响应
      */
     public CloseableHttpResponse httpRequest(String method, String url, Object urlParams, Object bodyParam,
                                              boolean useFormData, Header... headers) {
@@ -429,37 +446,48 @@ public class HttpRequestUtils {
         return this.patchRequest(url, null, bodyParam, headers);
     }
 
+    /**
+     * 获取当前工具复用的HTTP客户端。
+     *
+     * @return HTTP客户端
+     */
     public CloseableHttpClient getHttpClient() {
-        if (this.connectPool == null) {
-            return HttpClients.createDefault();
-        } else {
-            if (this.httpClient == null) {
-                synchronized (this) {
-                    if (this.httpClient == null) {
-                        this.httpClient = new CloseableHttpClientBuilder().setConnectPool(this.connectPool).build();
-                    }
+        if (this.closed) {
+            throw new IllegalStateException("http request utils already closed");
+        }
+        if (this.httpClient == null) {
+            synchronized (this) {
+                if (this.closed) {
+                    throw new IllegalStateException("http request utils already closed");
+                }
+                if (this.httpClient == null) {
+                    this.httpClient = new CloseableHttpClientBuilder().setConnectPool(this.connectPool).build();
                 }
             }
-            return this.httpClient;
         }
+        return this.httpClient;
     }
 
     /**
      * 关闭连接池
      */
+    @Override
     public void close() {
+        CloseableHttpClient client;
+        synchronized (this) {
+            if (this.closed) {
+                return;
+            }
+            this.closed = true;
+            client = this.httpClient;
+            this.httpClient = null;
+        }
         try {
-            if (this.httpClient != null) {
-                this.httpClient.close();
-                this.httpClient = null;
+            if (client != null) {
+                client.close();
             }
         } catch (IOException e) {
-            log.error("", e);
+            log.error("关闭HTTP客户端失败", e);
         }
-    }
-
-    @Override
-    protected void finalize() {
-        this.close();
     }
 }

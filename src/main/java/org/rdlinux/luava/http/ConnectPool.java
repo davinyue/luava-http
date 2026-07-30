@@ -27,6 +27,10 @@ public class ConnectPool {
      */
     private static final int defaultRetryCount = 3;
     /**
+     * 默认异步客户端IO线程数
+     */
+    private static final int defaultIoThreadCount = Math.max(1, Runtime.getRuntime().availableProcessors());
+    /**
      * 连接超时时间, 默认5秒, 单位毫秒
      */
     private int connectTimeout = defaultConnectTimeout;
@@ -60,14 +64,17 @@ public class ConnectPool {
      */
     private long keepAliveDuration = defaultKeepAliveDuration;
     /**
-     * 是否共享连接池管理工具, 默认false ,如果开启, 将不能通过CloseableHttpClient关闭连接池管理工具;<br/>
-     * 使用RestTemplate时建议开启, 关闭时可能会出现出现 connection pool shut down 的异常,
+     * 是否共享连接池管理工具。当前构建器在内部创建并持有连接管理器，因此仅支持false。
      */
     private Boolean connectionManagerShared = defaultConnectionManagerShared;
     /**
      * 失败重试次数, 默认3
      */
     private int retryCount = defaultRetryCount;
+    /**
+     * 异步客户端IO线程数，默认使用可用处理器数量
+     */
+    private int ioThreadCount = defaultIoThreadCount;
 
     public int getConnectTimeout() {
         return this.connectTimeout;
@@ -146,6 +153,9 @@ public class ConnectPool {
     }
 
     public ConnectPool setConnectionManagerShared(Boolean connectionManagerShared) {
+        if (connectionManagerShared == null) {
+            throw new IllegalArgumentException("connectionManagerShared can not be null");
+        }
         this.connectionManagerShared = connectionManagerShared;
         return this;
     }
@@ -156,6 +166,26 @@ public class ConnectPool {
 
     public ConnectPool setRetryCount(int retryCount) {
         this.retryCount = retryCount;
+        return this;
+    }
+
+    /**
+     * 获取异步客户端IO线程数。
+     *
+     * @return IO线程数
+     */
+    public int getIoThreadCount() {
+        return this.ioThreadCount;
+    }
+
+    /**
+     * 设置异步客户端IO线程数。
+     *
+     * @param ioThreadCount IO线程数
+     * @return 当前配置对象
+     */
+    public ConnectPool setIoThreadCount(int ioThreadCount) {
+        this.ioThreadCount = ioThreadCount;
         return this;
     }
 }

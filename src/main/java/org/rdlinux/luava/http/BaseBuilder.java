@@ -12,7 +12,50 @@ import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 
+/**
+ * 同步和异步HTTP客户端构建器的公共配置能力。
+ */
 public class BaseBuilder {
+    /**
+     * 校验连接池配置。
+     *
+     * @param connectPool 连接池配置
+     */
+    protected void validateConnectPool(ConnectPool connectPool) {
+        if (connectPool == null) {
+            throw new IllegalArgumentException("connectPool can not be null");
+        }
+        if (connectPool.getConnectTimeout() < 0
+                || connectPool.getSocketTimeout() < 0
+                || connectPool.getConnectionRequestTimeout() < 0) {
+            throw new IllegalArgumentException("timeout must be greater than or equal to 0");
+        }
+        if (connectPool.getSingleMaxActive() <= 0 || connectPool.getAllMaxActive() <= 0) {
+            throw new IllegalArgumentException("max active connections must be greater than 0");
+        }
+        if (connectPool.getAllMaxActive() < connectPool.getSingleMaxActive()) {
+            throw new IllegalArgumentException("allMaxActive must be greater than or equal to singleMaxActive");
+        }
+        if (connectPool.getMaxIdleTime() <= 0
+                || connectPool.getCleanSleepTime() <= 0
+                || connectPool.getKeepAliveDuration() <= 0) {
+            throw new IllegalArgumentException("connection lifecycle time must be greater than 0");
+        }
+        if (connectPool.getRetryCount() < 0) {
+            throw new IllegalArgumentException("retryCount must be greater than or equal to 0");
+        }
+        if (connectPool.getIoThreadCount() <= 0) {
+            throw new IllegalArgumentException("ioThreadCount must be greater than 0");
+        }
+        if (connectPool.getConnectionManagerShared() == null) {
+            throw new IllegalArgumentException("connectionManagerShared can not be null");
+        }
+        if (connectPool.getConnectionManagerShared()) {
+            throw new IllegalArgumentException(
+                    "connectionManagerShared is not supported because the connection manager is owned by the client");
+        }
+    }
+
     protected SSLContext createSSLContext() {
         // 这里设置信任所有证书
         SSLContext sslContext;

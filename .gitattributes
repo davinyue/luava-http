@@ -1,0 +1,4 @@
+/.gitattributes text eol=lf
+*.java text eol=lf
+*.md text eol=lf
+*.xml text eol=lf

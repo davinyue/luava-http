@@ -8,7 +8,6 @@ import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.config.SocketConfig;
-import org.apache.http.conn.HttpClientConnectionManager;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
@@ -20,11 +19,18 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
+import java.io.Closeable;
 import java.io.InterruptedIOException;
 import java.net.UnknownHostException;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * 同步HTTP客户端构建器。
+ */
 public class CloseableHttpClientBuilder extends BaseBuilder {
+    /**
+     * 连接池配置
+     */
     private ConnectPool connectPool;
 
     public CloseableHttpClientBuilder() {
@@ -33,7 +39,7 @@ public class CloseableHttpClientBuilder extends BaseBuilder {
     /**
      * 创建连接池管理
      */
-    private HttpClientConnectionManager createClientConnectionManager(ConnectPool connectPool) {
+    private PoolingHttpClientConnectionManager createClientConnectionManager(ConnectPool connectPool) {
         PoolingHttpClientConnectionManager clientConnectionManager;
         SSLConnectionSocketFactory sslSf = new SSLConnectionSocketFactory(this.createSSLContext(),
                 NoopHostnameVerifier.INSTANCE);
@@ -56,8 +62,8 @@ public class CloseableHttpClientBuilder extends BaseBuilder {
                 .setSoReuseAddress(true)
                 // 接收数据的等待超时时间，单位ms
                 .setSoTimeout(connectPool.getSocketTimeout())
-                // 关闭Socket时，要么发送完所有数据，要么等待60s后，就关闭连接，此时socket.close()是阻塞的
-                .setSoLinger(6)
+                // 禁用SO_LINGER，避免关闭连接时阻塞业务线程
+                .setSoLinger(-1)
                 // 开启监视TCP连接是否有效
                 .setSoKeepAlive(true).build();
         // 默认路由的socket配置
@@ -112,23 +118,43 @@ public class CloseableHttpClientBuilder extends BaseBuilder {
         if (this.connectPool == null) {
             return HttpClients.createDefault();
         } else {
-            return HttpClients.custom()
-                    // 配置连接池管理对象
-                    .setConnectionManager(this.createClientConnectionManager(this.connectPool))
-                    // 设置保持长连接策略
-                    .setKeepAliveStrategy(this.createConnectionKeepAliveStrategy(this.connectPool))
-                    .setConnectionReuseStrategy(new DefaultConnectionReuseStrategy())
-                    // 默认请求配置
-                    .setDefaultRequestConfig(this.createRequestConfig(this.connectPool))
-                    // 重试策略
-                    .setRetryHandler(this.createHttpRequestRetryHandler(this.connectPool))
-                    // If you set it to true the client won't close the connection manager
-                    .setConnectionManagerShared(this.connectPool.getConnectionManagerShared())
-                    // 空闲和无效连接释放
-                    .evictIdleConnections(this.connectPool.getMaxIdleTime(), TimeUnit.MILLISECONDS).build();
+            this.validateConnectPool(this.connectPool);
+            PoolingHttpClientConnectionManager connectionManager =
+                    this.createClientConnectionManager(this.connectPool);
+            IdleConnectionCleaner connectionCleaner = new IdleConnectionCleaner(
+                    "http-idle-connection-cleaner-sync",
+                    new IdleConnectionCleaner.ConnectionManager() {
+                        @Override
+                        public void closeExpiredConnections() {
+                            connectionManager.closeExpiredConnections();
+                        }
+
+                        @Override
+                        public void closeIdleConnections(long idleTime, TimeUnit timeUnit) {
+                            connectionManager.closeIdleConnections(idleTime, timeUnit);
+                        }
+                    },
+                    this.connectPool.getMaxIdleTime(),
+                    this.connectPool.getCleanSleepTime());
+            OwnedHttpClientBuilder clientBuilder = new OwnedHttpClientBuilder();
+            clientBuilder.setConnectionManager(connectionManager);
+            clientBuilder.setKeepAliveStrategy(this.createConnectionKeepAliveStrategy(this.connectPool));
+            clientBuilder.setConnectionReuseStrategy(new DefaultConnectionReuseStrategy());
+            clientBuilder.setDefaultRequestConfig(this.createRequestConfig(this.connectPool));
+            clientBuilder.setRetryHandler(this.createHttpRequestRetryHandler(this.connectPool));
+            clientBuilder.addManagedCloseable(connectionCleaner);
+            CloseableHttpClient client = clientBuilder.build();
+            connectionCleaner.start();
+            return client;
         }
     }
 
+    /**
+     * 设置连接池配置。
+     *
+     * @param connectPool 连接池配置
+     * @return 当前构建器
+     */
     public CloseableHttpClientBuilder setConnectPool(ConnectPool connectPool) {
         this.connectPool = connectPool;
         return this;
@@ -136,8 +162,24 @@ public class CloseableHttpClientBuilder extends BaseBuilder {
 
     /**
      * 构建连接池
+     *
+     * @return 同步HTTP客户端
      */
     public CloseableHttpClient build() {
         return this.getHttpClient();
+    }
+
+    /**
+     * 允许把连接清理器注册到客户端关闭流程中的Apache客户端构建器。
+     */
+    private static class OwnedHttpClientBuilder extends org.apache.http.impl.client.HttpClientBuilder {
+        /**
+         * 注册由客户端负责关闭的资源。
+         *
+         * @param closeable 待关闭资源
+         */
+        private void addManagedCloseable(Closeable closeable) {
+            this.addCloseable(closeable);
+        }
     }
 }
