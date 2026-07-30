@@ -49,11 +49,23 @@ public class BaseBuilder {
         }
     }
 
+    /**
+     * 创建使用系统信任库的SSL上下文。
+     *
+     * @return 安全SSL上下文
+     */
     protected SSLContext createSSLContext() {
-        // 这里设置信任所有证书
+        return SSLContexts.createSystemDefault();
+    }
+
+    /**
+     * 创建信任全部证书的不安全SSL上下文。
+     *
+     * @return 不安全SSL上下文
+     */
+    protected SSLContext createInsecureSSLContext() {
         SSLContext sslContext;
         try {
-            // 信任所有
             sslContext = SSLContexts.custom().loadTrustMaterial(null, (chain, authType) -> true).build();
         } catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e) {
             throw new RuntimeException(e);

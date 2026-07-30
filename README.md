@@ -25,7 +25,7 @@
 <dependency>
     <groupId>org.rdlinux</groupId>
     <artifactId>luava-http</artifactId>
-    <version>0.1.2</version>
+    <version>0.1.3</version>
 </dependency>
 ```
 
@@ -90,6 +90,42 @@ try (HttpRequestUtils requestUtils = new HttpRequestUtils();
     System.out.println(responseBody);
 }
 ```
+
+### 单例客户端的请求级配置
+
+`HttpRequestUtils` 可以作为单例复用。不同远程服务需要不同超时时，可通过
+`HttpRequestOptions` 只覆盖当前请求，不修改共享连接池的默认配置：
+
+```java
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.rdlinux.luava.http.HttpRequestOptions;
+import org.rdlinux.luava.http.HttpRequestUtils;
+
+HttpRequestOptions requestOptions = new HttpRequestOptions(
+        3000,
+        10000,
+        2000,
+        false);
+
+try (HttpRequestUtils requestUtils = new HttpRequestUtils();
+     CloseableHttpResponse response =
+             requestUtils.httpRequestWithOptions(
+                     HttpGet.METHOD_NAME,
+                     "http://127.0.0.1:8080/api/users",
+                     null,
+                     null,
+                     false,
+                     requestOptions)) {
+    // 处理响应
+}
+```
+
+四个构造参数依次表示连接超时、读取超时、连接池获取超时和是否允许自动重定向。
+超时单位均为毫秒且不能小于 0。
+
+`httpRequestWithOptions` 使用独立方法名，现有 `httpRequest`、`getRequest`、
+`postRequest` 等历史 API 的签名和调用方式保持不变。
 
 ### POST JSON
 
@@ -495,17 +531,38 @@ try (CloseableHttpAsyncClient client = new AsyncCloseableHttpClientBuilder()
 ## 状态码和异常处理
 
 - 4xx、5xx 响应不会自动转换为异常，调用方应检查 `response.getStatusLine().getStatusCode()`。
-- `HttpRequestUtils` 会将请求阶段的 `IOException` 包装为 `RuntimeException`。
+- `HttpRequestUtils` 会将请求阶段的 `IOException` 包装为
+  `HttpRequestExecuteException`。该异常仍是 `RuntimeException`，并通过
+  `getRequestWriteState()` 返回 `NOT_STARTED`、`STARTED` 或 `COMPLETED`。
 - JSON 转换失败时也会抛出运行时异常。
 - 建议在业务层记录请求目标、状态码和必要的错误响应内容。
 
+请求正文写出状态只描述客户端侧进度，不能证明服务端是否已处理请求。带副作用的
+请求在 `STARTED` 或 `COMPLETED` 后发生异常时，应结合幂等键或远程状态查询判断，
+不要直接重放。
+
 ## 安全注意事项
 
-`HttpRequestUtils` 以及显式配置了 `ConnectPool` 的同步、异步构建器会信任所有 TLS 证书，并关闭 HTTPS 主机名校验。因此：
+`HttpRequestUtils` 以及同步、异步构建器默认使用系统信任库和标准 HTTPS 主机名
+校验。生产环境应将服务端证书或签发它的 CA 正确加入运行环境信任库。
 
-- 仅应在可信网络或明确接受该风险的环境中使用当前 HTTPS 实现。
-- 不要直接用于存在中间人攻击风险的生产网络。
-- 生产使用前应改为系统默认信任库或显式配置受信任证书，并启用主机名校验。
+为兼容确实依赖自签名证书且尚未配置信任库的历史环境，可以显式启用不安全模式：
+
+```java
+try (HttpRequestUtils requestUtils =
+             new HttpRequestUtils(new ConnectPool(), true)) {
+    // 仅限明确接受中间人攻击风险的兼容环境
+}
+
+try (CloseableHttpClient client = new CloseableHttpClientBuilder()
+        .setConnectPool(new ConnectPool())
+        .setInsecureTrustAllCertificates(true)
+        .build()) {
+    // 仅限兼容环境
+}
+```
+
+不安全模式会信任所有 TLS 证书并关闭主机名校验，不应在生产网络使用。
 
 Trace 日志可能包含完整 URL 和请求体，生产环境开启 Trace 日志前应确认其中不包含令牌、密码或敏感业务数据。
 

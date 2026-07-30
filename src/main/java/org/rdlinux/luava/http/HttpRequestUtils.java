@@ -5,9 +5,10 @@ import com.fasterxml.jackson.databind.JavaType;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.ParseException;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.*;
-import org.apache.http.entity.AbstractHttpEntity;
 import org.apache.http.entity.ContentType;
+import org.apache.http.entity.HttpEntityWrapper;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
@@ -17,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.reflect.Type;
 import java.net.URI;
 
@@ -38,6 +40,10 @@ public class HttpRequestUtils implements AutoCloseable {
      */
     private final ConnectPool connectPool;
     /**
+     * 是否显式信任全部TLS证书并关闭主机名校验。
+     */
+    private final boolean insecureTrustAllCertificates;
+    /**
      * 工具关闭状态
      */
     private volatile boolean closed;
@@ -48,10 +54,22 @@ public class HttpRequestUtils implements AutoCloseable {
      * @param connectPool 连接池配置对象,当为null时,使用默认配置
      */
     public HttpRequestUtils(ConnectPool connectPool) {
+        this(connectPool, false);
+    }
+
+    /**
+     * 构造一个使用连接池的HTTP请求工具。
+     *
+     * @param connectPool 连接池配置对象，为null时使用默认配置
+     * @param insecureTrustAllCertificates 是否信任全部TLS证书并关闭主机名校验
+     */
+    public HttpRequestUtils(ConnectPool connectPool,
+                            boolean insecureTrustAllCertificates) {
         if (connectPool == null) {
             connectPool = new ConnectPool();
         }
-        this.connectPool = connectPool;
+        this.connectPool = connectPool.copy();
+        this.insecureTrustAllCertificates = insecureTrustAllCertificates;
     }
 
     /**
@@ -148,6 +166,51 @@ public class HttpRequestUtils implements AutoCloseable {
      */
     public CloseableHttpResponse httpRequest(String method, String url, Object urlParams, Object bodyParam,
                                              boolean useFormData, Header... headers) {
+        return this.executeHttpRequest(method, url, urlParams, bodyParam,
+                useFormData, null, headers);
+    }
+
+    /**
+     * 使用单次请求配置执行HTTP请求。
+     *
+     * <p>该方法使用独立名称，避免与历史可变参数API在传入null时产生重载歧义。</p>
+     *
+     * @param method 请求方法
+     * @param url 请求地址
+     * @param urlParams URL参数
+     * @param bodyParam 请求正文；非HttpEntity对象根据useFormData转换
+     * @param useFormData 是否使用application/x-www-form-urlencoded
+     * @param requestOptions 单次请求配置
+     * @param headers 请求头
+     * @return HTTP响应，调用方必须关闭该响应
+     */
+    public CloseableHttpResponse httpRequestWithOptions(
+            String method, String url, Object urlParams, Object bodyParam,
+            boolean useFormData, HttpRequestOptions requestOptions,
+            Header... headers) {
+        if (requestOptions == null) {
+            throw new IllegalArgumentException("requestOptions can not be null");
+        }
+        return this.executeHttpRequest(method, url, urlParams, bodyParam,
+                useFormData, requestOptions, headers);
+    }
+
+    /**
+     * 执行HTTP请求。
+     *
+     * @param method 请求方法
+     * @param url 请求地址
+     * @param urlParams URL参数
+     * @param bodyParam 请求正文
+     * @param useFormData 是否使用表单正文
+     * @param requestOptions 可选单次请求配置
+     * @param headers 请求头
+     * @return HTTP响应，调用方必须关闭该响应
+     */
+    private CloseableHttpResponse executeHttpRequest(
+            String method, String url, Object urlParams, Object bodyParam,
+            boolean useFormData, HttpRequestOptions requestOptions,
+            Header... headers) {
         if (urlParams != null) {
             String urlParam = Qs.stringify(urlParams);
             if (url.contains("?")) {
@@ -167,6 +230,9 @@ public class HttpRequestUtils implements AutoCloseable {
             }
         };
         request.setURI(URI.create(url));
+        if (requestOptions != null) {
+            request.setConfig(createRequestConfig(requestOptions));
+        }
         if (headers != null && headers.length != 0) {
             for (Header header : headers) {
                 if (header != null) {
@@ -193,23 +259,27 @@ public class HttpRequestUtils implements AutoCloseable {
                 request.addHeader(SleuthConst.parentSpanIdHeader, parentSpanId);
             }
         }
+        RequestWriteTrackingEntity trackingEntity = null;
         // 处理body参数
         if (bodyParam != null) {
-            AbstractHttpEntity bodyEntity = null;
+            HttpEntity bodyEntity;
             if (bodyParam instanceof HttpEntity) {
                 if (log.isTraceEnabled()) {
                     log.trace("本次请求body参数:" + bodyParam);
                 }
-                request.setEntity((HttpEntity) bodyParam);
+                bodyEntity = (HttpEntity) bodyParam;
             } else {
                 if (useFormData) {
                     String stringify = Qs.stringify(bodyParam);
                     if (log.isTraceEnabled()) {
                         log.trace("本次请求body参数:" + stringify);
                     }
-                    bodyEntity = new StringEntity(stringify, "UTF-8");
-                    bodyEntity.setContentType("application/x-www-form-urlencoded");
-                    bodyEntity.setContentEncoding("UTF-8");
+                    StringEntity formEntity = new StringEntity(
+                            stringify, "UTF-8");
+                    formEntity.setContentType(
+                            "application/x-www-form-urlencoded");
+                    formEntity.setContentEncoding("UTF-8");
+                    bodyEntity = formEntity;
                 } else {
                     String bodyStr;
                     if (bodyParam instanceof String) {
@@ -224,17 +294,35 @@ public class HttpRequestUtils implements AutoCloseable {
                     }
                     bodyEntity = new StringEntity(bodyStr, ContentType.APPLICATION_JSON);
                 }
-                request.setEntity(bodyEntity);
             }
-
+            trackingEntity = new RequestWriteTrackingEntity(bodyEntity);
+            request.setEntity(trackingEntity);
         }
-        CloseableHttpResponse response = null;
         try {
-            response = httpclient.execute(request);
+            return httpclient.execute(request);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            RequestWriteState writeState = trackingEntity == null
+                    ? RequestWriteState.NOT_STARTED
+                    : trackingEntity.getWriteState();
+            throw new HttpRequestExecuteException(e, writeState);
         }
-        return response;
+    }
+
+    /**
+     * 创建单次Apache请求配置。
+     *
+     * @param requestOptions 单次请求配置
+     * @return Apache请求配置
+     */
+    private static RequestConfig createRequestConfig(
+            HttpRequestOptions requestOptions) {
+        return RequestConfig.custom()
+                .setConnectTimeout(requestOptions.getConnectTimeout())
+                .setSocketTimeout(requestOptions.getSocketTimeout())
+                .setConnectionRequestTimeout(
+                        requestOptions.getConnectionRequestTimeout())
+                .setRedirectsEnabled(requestOptions.isRedirectsEnabled())
+                .build();
     }
 
     /**
@@ -461,7 +549,11 @@ public class HttpRequestUtils implements AutoCloseable {
                     throw new IllegalStateException("http request utils already closed");
                 }
                 if (this.httpClient == null) {
-                    this.httpClient = new CloseableHttpClientBuilder().setConnectPool(this.connectPool).build();
+                    this.httpClient = new CloseableHttpClientBuilder()
+                            .setConnectPool(this.connectPool)
+                            .setInsecureTrustAllCertificates(
+                                    this.insecureTrustAllCertificates)
+                            .build();
                 }
             }
         }
@@ -488,6 +580,49 @@ public class HttpRequestUtils implements AutoCloseable {
             }
         } catch (IOException e) {
             log.error("关闭HTTP客户端失败", e);
+        }
+    }
+
+    /**
+     * 跟踪请求正文的客户端写出阶段。
+     */
+    private static final class RequestWriteTrackingEntity
+            extends HttpEntityWrapper {
+        /**
+         * 当前写出状态。
+         */
+        private volatile RequestWriteState writeState =
+                RequestWriteState.NOT_STARTED;
+
+        /**
+         * 创建请求正文跟踪包装器。
+         *
+         * @param wrappedEntity 原请求正文
+         */
+        private RequestWriteTrackingEntity(HttpEntity wrappedEntity) {
+            super(wrappedEntity);
+        }
+
+        /**
+         * 写出请求正文并更新状态。
+         *
+         * @param outputStream 客户端输出流
+         * @throws IOException 请求正文写出失败
+         */
+        @Override
+        public void writeTo(OutputStream outputStream) throws IOException {
+            this.writeState = RequestWriteState.STARTED;
+            super.writeTo(outputStream);
+            this.writeState = RequestWriteState.COMPLETED;
+        }
+
+        /**
+         * 获取当前写出状态。
+         *
+         * @return 当前写出状态
+         */
+        private RequestWriteState getWriteState() {
+            return this.writeState;
         }
     }
 }

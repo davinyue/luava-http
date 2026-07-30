@@ -32,6 +32,10 @@ public class CloseableHttpClientBuilder extends BaseBuilder {
      * 连接池配置
      */
     private ConnectPool connectPool;
+    /**
+     * 是否显式信任全部TLS证书并关闭主机名校验。
+     */
+    private boolean insecureTrustAllCertificates;
 
     public CloseableHttpClientBuilder() {
     }
@@ -41,8 +45,10 @@ public class CloseableHttpClientBuilder extends BaseBuilder {
      */
     private PoolingHttpClientConnectionManager createClientConnectionManager(ConnectPool connectPool) {
         PoolingHttpClientConnectionManager clientConnectionManager;
-        SSLConnectionSocketFactory sslSf = new SSLConnectionSocketFactory(this.createSSLContext(),
-                NoopHostnameVerifier.INSTANCE);
+        SSLConnectionSocketFactory sslSf = this.insecureTrustAllCertificates
+                ? new SSLConnectionSocketFactory(this.createInsecureSSLContext(),
+                NoopHostnameVerifier.INSTANCE)
+                : SSLConnectionSocketFactory.getSystemSocketFactory();
         Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
                 .register("https", sslSf).register("http", PlainConnectionSocketFactory.getSocketFactory())
                 .build();
@@ -116,7 +122,13 @@ public class CloseableHttpClientBuilder extends BaseBuilder {
 
     private CloseableHttpClient getHttpClient() {
         if (this.connectPool == null) {
-            return HttpClients.createDefault();
+            if (!this.insecureTrustAllCertificates) {
+                return HttpClients.createDefault();
+            }
+            return HttpClients.custom()
+                    .setSSLContext(this.createInsecureSSLContext())
+                    .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                    .build();
         } else {
             this.validateConnectPool(this.connectPool);
             PoolingHttpClientConnectionManager connectionManager =
@@ -157,6 +169,20 @@ public class CloseableHttpClientBuilder extends BaseBuilder {
      */
     public CloseableHttpClientBuilder setConnectPool(ConnectPool connectPool) {
         this.connectPool = connectPool;
+        return this;
+    }
+
+    /**
+     * 设置是否信任全部TLS证书并关闭主机名校验。
+     *
+     * <p>该选项会降低HTTPS安全性，只应用于明确接受风险的兼容场景。</p>
+     *
+     * @param insecureTrustAllCertificates 是否启用不安全TLS兼容模式
+     * @return 当前构建器
+     */
+    public CloseableHttpClientBuilder setInsecureTrustAllCertificates(
+            boolean insecureTrustAllCertificates) {
+        this.insecureTrustAllCertificates = insecureTrustAllCertificates;
         return this;
     }
 

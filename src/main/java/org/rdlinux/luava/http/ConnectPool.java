@@ -71,6 +71,42 @@ public class ConnectPool {
      */
     private int ioThreadCount = defaultIoThreadCount;
 
+    /**
+     * 创建默认连接池配置。
+     */
+    public ConnectPool() {
+    }
+
+    /**
+     * 复制连接池配置。
+     *
+     * @param source 原连接池配置
+     */
+    public ConnectPool(ConnectPool source) {
+        if (source == null) {
+            throw new IllegalArgumentException("source can not be null");
+        }
+        this.connectTimeout = source.connectTimeout;
+        this.socketTimeout = source.socketTimeout;
+        this.connectionRequestTimeout = source.connectionRequestTimeout;
+        this.singleMaxActive = source.singleMaxActive;
+        this.allMaxActive = source.allMaxActive;
+        this.maxIdleTime = source.maxIdleTime;
+        this.cleanSleepTime = source.cleanSleepTime;
+        this.keepAliveDuration = source.keepAliveDuration;
+        this.retryCount = source.retryCount;
+        this.ioThreadCount = source.ioThreadCount;
+    }
+
+    /**
+     * 创建当前配置的独立副本。
+     *
+     * @return 独立连接池配置
+     */
+    public ConnectPool copy() {
+        return new ConnectPool(this);
+    }
+
     public int getConnectTimeout() {
         return this.connectTimeout;
     }

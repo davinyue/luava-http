@@ -3,7 +3,12 @@ package org.linuxprobe.luava;
 import com.sun.net.httpserver.HttpServer;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.config.Lookup;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.conn.DefaultHttpClientConnectionOperator;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
 import org.apache.http.util.EntityUtils;
@@ -113,6 +118,57 @@ public class ConnectionPoolLifecycleTest {
     }
 
     /**
+     * 验证同步和异步客户端保留显式不安全TLS兼容开关。
+     *
+     * @throws Exception 关闭客户端失败
+     */
+    @Test
+    public void shouldBuildClientsWithExplicitInsecureTlsCompatibility()
+            throws Exception {
+        try (CloseableHttpClient client = new CloseableHttpClientBuilder()
+                .setConnectPool(new ConnectPool())
+                .setInsecureTrustAllCertificates(true)
+                .build()) {
+            Assert.assertNotNull(client);
+        }
+        try (CloseableHttpAsyncClient client =
+                     new AsyncCloseableHttpClientBuilder()
+                             .setConnectPool(new ConnectPool())
+                             .setInsecureTrustAllCertificates(true)
+                             .build()) {
+            Assert.assertNotNull(client);
+        }
+        try (HttpRequestUtils requestUtils =
+                     new HttpRequestUtils(new ConnectPool(), true)) {
+            Assert.assertNotNull(requestUtils.getHttpClient());
+        }
+    }
+
+    /**
+     * 验证同步连接池默认启用主机名校验，且仅由显式开关关闭。
+     *
+     * @throws Exception 关闭客户端或读取连接配置失败
+     */
+    @Test
+    public void shouldUseSecureHostnameVerificationByDefault()
+            throws Exception {
+        try (CloseableHttpClient secureClient =
+                     new CloseableHttpClientBuilder()
+                             .setConnectPool(new ConnectPool())
+                             .build();
+             CloseableHttpClient insecureClient =
+                     new CloseableHttpClientBuilder()
+                             .setConnectPool(new ConnectPool())
+                             .setInsecureTrustAllCertificates(true)
+                             .build()) {
+            Assert.assertFalse(this.getHostnameVerifier(secureClient)
+                    instanceof NoopHostnameVerifier);
+            Assert.assertTrue(this.getHostnameVerifier(insecureClient)
+                    instanceof NoopHostnameVerifier);
+        }
+    }
+
+    /**
      * 统计指定前缀的存活线程数量。
      *
      * @param threadNamePrefix 线程名称前缀
@@ -154,6 +210,42 @@ public class ConnectionPoolLifecycleTest {
         Field connectionManagerField = client.getClass().getDeclaredField("connManager");
         connectionManagerField.setAccessible(true);
         return (PoolingHttpClientConnectionManager) connectionManagerField.get(client);
+    }
+
+    /**
+     * 获取同步客户端HTTPS主机名校验器。
+     *
+     * @param client 同步HTTP客户端
+     * @return 主机名校验器
+     * @throws ReflectiveOperationException 无法读取连接配置
+     */
+    private Object getHostnameVerifier(CloseableHttpClient client)
+            throws ReflectiveOperationException {
+        PoolingHttpClientConnectionManager connectionManager =
+                this.getConnectionManager(client);
+        Field connectionOperatorField =
+                PoolingHttpClientConnectionManager.class.getDeclaredField(
+                        "connectionOperator");
+        connectionOperatorField.setAccessible(true);
+        DefaultHttpClientConnectionOperator connectionOperator =
+                (DefaultHttpClientConnectionOperator)
+                        connectionOperatorField.get(connectionManager);
+        Field socketFactoryRegistryField =
+                DefaultHttpClientConnectionOperator.class.getDeclaredField(
+                        "socketFactoryRegistry");
+        socketFactoryRegistryField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Lookup<ConnectionSocketFactory> socketFactoryRegistry =
+                (Lookup<ConnectionSocketFactory>)
+                        socketFactoryRegistryField.get(connectionOperator);
+        SSLConnectionSocketFactory sslSocketFactory =
+                (SSLConnectionSocketFactory)
+                        socketFactoryRegistry.lookup("https");
+        Field hostnameVerifierField =
+                SSLConnectionSocketFactory.class.getDeclaredField(
+                        "hostnameVerifier");
+        hostnameVerifierField.setAccessible(true);
+        return hostnameVerifierField.get(sslSocketFactory);
     }
 
     /**

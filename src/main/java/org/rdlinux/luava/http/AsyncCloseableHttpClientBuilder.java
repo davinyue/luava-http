@@ -2,6 +2,8 @@ package org.rdlinux.luava.http;
 
 import org.apache.http.concurrent.FutureCallback;
 import org.apache.http.config.ConnectionConfig;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.DefaultConnectionReuseStrategy;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
@@ -10,6 +12,9 @@ import org.apache.http.impl.nio.conn.PoolingNHttpClientConnectionManager;
 import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.nio.conn.NHttpClientConnectionManager;
+import org.apache.http.nio.conn.NoopIOSessionStrategy;
+import org.apache.http.nio.conn.SchemeIOSessionStrategy;
+import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
 import org.apache.http.nio.protocol.HttpAsyncRequestProducer;
 import org.apache.http.nio.protocol.HttpAsyncResponseConsumer;
 import org.apache.http.nio.reactor.IOReactorException;
@@ -38,6 +43,10 @@ public class AsyncCloseableHttpClientBuilder extends BaseBuilder {
      * 连接池配置
      */
     private ConnectPool connectPool;
+    /**
+     * 是否显式信任全部TLS证书并关闭主机名校验。
+     */
+    private boolean insecureTrustAllCertificates;
 
     /**
      * 创建异步连接池管理
@@ -70,7 +79,17 @@ public class AsyncCloseableHttpClientBuilder extends BaseBuilder {
             }
         });
         // 配置连接池
-        clientConnectionManager = new PoolingNHttpClientConnectionManager(ioReactor);
+        Registry<SchemeIOSessionStrategy> ioSessionStrategyRegistry =
+                RegistryBuilder.<SchemeIOSessionStrategy>create()
+                        .register("http", NoopIOSessionStrategy.INSTANCE)
+                        .register("https", this.insecureTrustAllCertificates
+                                ? new SSLIOSessionStrategy(
+                                this.createInsecureSSLContext(),
+                                NoopHostnameVerifier.INSTANCE)
+                                : SSLIOSessionStrategy.getSystemDefaultStrategy())
+                        .build();
+        clientConnectionManager = new PoolingNHttpClientConnectionManager(
+                ioReactor, ioSessionStrategyRegistry);
         // 最大连接
         clientConnectionManager.setMaxTotal(this.connectPool.getAllMaxActive());
         // 默认的每个路由的最大连接数
@@ -86,13 +105,17 @@ public class AsyncCloseableHttpClientBuilder extends BaseBuilder {
 
     private CloseableHttpAsyncClient getAsyncHttpClient() {
         if (this.connectPool == null) {
-            return HttpAsyncClients.createDefault();
+            if (!this.insecureTrustAllCertificates) {
+                return HttpAsyncClients.createDefault();
+            }
+            return HttpAsyncClients.custom()
+                    .setSSLContext(this.createInsecureSSLContext())
+                    .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                    .build();
         } else {
             this.validateConnectPool(this.connectPool);
             PoolingNHttpClientConnectionManager asyncClientConnectionManager = this.createAsyncClientConnectionManager();
             CloseableHttpAsyncClient delegate = HttpAsyncClients.custom()
-                    .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-                    .setSSLContext(this.createSSLContext())
                     // 配置连接池管理对象
                     .setConnectionManager(asyncClientConnectionManager)
                     // 设置保持长连接策略
@@ -128,6 +151,20 @@ public class AsyncCloseableHttpClientBuilder extends BaseBuilder {
      */
     public AsyncCloseableHttpClientBuilder setConnectPool(ConnectPool connectPool) {
         this.connectPool = connectPool;
+        return this;
+    }
+
+    /**
+     * 设置是否信任全部TLS证书并关闭主机名校验。
+     *
+     * <p>该选项会降低HTTPS安全性，只应用于明确接受风险的兼容场景。</p>
+     *
+     * @param insecureTrustAllCertificates 是否启用不安全TLS兼容模式
+     * @return 当前构建器
+     */
+    public AsyncCloseableHttpClientBuilder setInsecureTrustAllCertificates(
+            boolean insecureTrustAllCertificates) {
+        this.insecureTrustAllCertificates = insecureTrustAllCertificates;
         return this;
     }
 
