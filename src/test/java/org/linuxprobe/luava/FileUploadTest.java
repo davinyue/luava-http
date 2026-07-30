@@ -3,11 +3,13 @@ package org.linuxprobe.luava;
 import com.sun.net.httpserver.HttpServer;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.util.EntityUtils;
 import org.junit.Assert;
 import org.junit.Test;
+import org.rdlinux.luava.http.HttpRequestSpec;
 import org.rdlinux.luava.http.HttpRequestUtils;
 
 import java.io.ByteArrayOutputStream;
@@ -54,9 +56,15 @@ public class FileUploadTest {
                             ContentType.TEXT_PLAIN.withCharset(StandardCharsets.UTF_8))
                     .build();
             try (HttpRequestUtils requestUtils = new HttpRequestUtils();
-                 CloseableHttpResponse response = requestUtils.postRequest(
-                         "http://127.0.0.1:" + server.getAddress().getPort() + "/upload",
-                         multipartEntity)) {
+                 CloseableHttpResponse response = requestUtils.execute(
+                         HttpRequestSpec.builder(
+                                         HttpPost.METHOD_NAME,
+                                         "http://127.0.0.1:"
+                                                 + server.getAddress()
+                                                 .getPort()
+                                                 + "/upload")
+                                 .entityBody(multipartEntity)
+                                 .build())) {
                 Assert.assertEquals(200, response.getStatusLine().getStatusCode());
                 Assert.assertEquals("success", EntityUtils.toString(response.getEntity()));
             }

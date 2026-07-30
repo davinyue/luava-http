@@ -1,6 +1,7 @@
 # luava-http
 
-`luava-http` 是一个基于 Apache HttpClient 4.x 的 Java 8 HTTP 请求工具库，提供同步请求、异步客户端、连接池管理、查询参数编码、JSON 转换和 multipart 文件上传能力。
+`luava-http` 是一个基于 Apache HttpClient 4.x 的 Java 8 HTTP 请求工具库，提供同步请求、异步客户端、连接池管理、查询参数编码、JSON
+转换和 multipart 文件上传能力。
 
 ## 功能特性
 
@@ -22,213 +23,148 @@
 ## Maven 依赖
 
 ```xml
+
 <dependency>
     <groupId>org.rdlinux</groupId>
     <artifactId>luava-http</artifactId>
-    <version>0.1.3</version>
+    <version>0.1.4</version>
 </dependency>
 ```
 
 ## 快速开始
 
-`HttpRequestUtils` 会复用内部连接池。工具对象和原始响应都需要关闭，建议始终使用 try-with-resources：
+`HttpRequestUtils` 使用 `HttpRequestSpec` 描述请求，并复用内部 HTTP 客户端和连接池。
+带响应处理器的 `execute` 会自动关闭响应：
 
 ```java
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.util.EntityUtils;
-import org.rdlinux.luava.http.HttpRequestUtils;
-
-import java.nio.charset.StandardCharsets;
-
-public class QuickStart {
-    public static void main(String[] args) throws Exception {
-        try (HttpRequestUtils requestUtils = new HttpRequestUtils();
-             CloseableHttpResponse response =
-                     requestUtils.getRequest("http://127.0.0.1:8080/api/health")) {
-            int statusCode = response.getStatusLine().getStatusCode();
-            String responseBody = EntityUtils.toString(
-                    response.getEntity(), StandardCharsets.UTF_8);
-
-            System.out.println("statusCode = " + statusCode);
-            System.out.println("responseBody = " + responseBody);
-        }
-    }
-}
-```
-
-## 同步请求教程
-
-### GET 查询参数和请求头
-
-对象或 `Map` 可以作为查询参数传入，参数会追加到 URL：
-
-```java
-import org.apache.http.Header;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.util.EntityUtils;
-import org.rdlinux.luava.http.HttpRequestUtils;
-
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
-
-Map<String, Object> queryParams = new HashMap<>();
-queryParams.put("page", 1);
-queryParams.put("pageSize", 20);
-queryParams.put("keyword", "luava");
-
-Header authorization = new BasicHeader("Authorization", "Bearer your-token");
-
-try (HttpRequestUtils requestUtils = new HttpRequestUtils();
-     CloseableHttpResponse response = requestUtils.getRequest(
-             "http://127.0.0.1:8080/api/users",
-             queryParams,
-             authorization)) {
-    String responseBody = EntityUtils.toString(
-            response.getEntity(), StandardCharsets.UTF_8);
-    System.out.println(responseBody);
-}
-```
-
-### 单例客户端的请求级配置
-
-`HttpRequestUtils` 可以作为单例复用。不同远程服务需要不同超时时，可通过
-`HttpRequestOptions` 只覆盖当前请求，不修改共享连接池的默认配置：
-
-```java
-import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
-import org.rdlinux.luava.http.HttpRequestOptions;
+import org.rdlinux.luava.http.HttpRequestSpec;
 import org.rdlinux.luava.http.HttpRequestUtils;
+import org.rdlinux.luava.http.HttpResponseHandlers;
 
-HttpRequestOptions requestOptions = new HttpRequestOptions(
-        3000,
-        10000,
-        2000,
-        false);
+try(HttpRequestUtils requestUtils = new HttpRequestUtils()){
+String responseBody = requestUtils.execute(
+        HttpRequestSpec.builder(
+                        HttpGet.METHOD_NAME,
+                        "http://127.0.0.1:8080/api/health")
+                .build(),
+        HttpResponseHandlers.asString());
+    System.out.
 
-try (HttpRequestUtils requestUtils = new HttpRequestUtils();
-     CloseableHttpResponse response =
-             requestUtils.httpRequestWithOptions(
-                     HttpGet.METHOD_NAME,
-                     "http://127.0.0.1:8080/api/users",
-                     null,
-                     null,
-                     false,
-                     requestOptions)) {
-    // 处理响应
+println(responseBody);
 }
 ```
 
-四个构造参数依次表示连接超时、读取超时、连接池获取超时和是否允许自动重定向。
-超时单位均为毫秒且不能小于 0。
-
-`httpRequestWithOptions` 使用独立方法名，现有 `httpRequest`、`getRequest`、
-`postRequest` 等历史 API 的签名和调用方式保持不变。
-
-### POST JSON
-
-当请求体不是 `String` 或 `HttpEntity` 时，工具会自动将对象转换成 JSON，并使用 `application/json`：
+需要访问状态码或响应头时使用返回原始响应的 `execute(HttpRequestSpec)`，并由调用方
+关闭响应：
 
 ```java
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.util.EntityUtils;
-import org.rdlinux.luava.http.HttpRequestUtils;
+try(CloseableHttpResponse response = requestUtils.execute(
+        HttpRequestSpec.builder(
+                        HttpGet.METHOD_NAME,
+                        "http://127.0.0.1:8080/api/health")
+                .build())){
+int statusCode = response.getStatusLine().getStatusCode();
+}
+```
 
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
+## 类型化同步请求
 
+### 查询参数、请求头和请求级配置
+
+查询参数可以使用对象、`Map` 或查询字符串。`HttpRequestOptions.Builder` 未设置的
+字段继承当前连接池默认值：
+
+```java
+Map<String, Object> queryParams = new HashMap<>();
+queryParams.
+
+put("page",1);
+queryParams.
+
+put("pageSize",20);
+queryParams.
+
+put("keyword","luava");
+
+HttpRequestOptions requestOptions = HttpRequestOptions.builder()
+        .socketTimeout(30000)
+        .redirectsEnabled(false)
+        .build();
+
+HttpRequestSpec request = HttpRequestSpec.builder(
+                HttpGet.METHOD_NAME,
+                "http://127.0.0.1:8080/api/users")
+        .query(queryParams)
+        .header("Authorization", "Bearer your-token")
+        .options(requestOptions)
+        .build();
+
+String responseBody = requestUtils.execute(
+        request, HttpResponseHandlers.asString());
+```
+
+`HttpRequestUtils` 只提供 `execute(HttpRequestSpec)` 请求入口。GET、POST、PUT、
+PATCH、DELETE、HEAD、OPTIONS 或自定义方法均通过 Builder 的 `method` 参数表达。
+
+### JSON 正文
+
+`jsonBody` 会将普通对象转换为 JSON；传入 `String`、`StringBuilder` 或
+`StringBuffer` 时保留其正文内容：
+
+```java
 Map<String, Object> requestBody = new HashMap<>();
-requestBody.put("name", "张三");
-requestBody.put("age", 20);
+requestBody.
 
-try (HttpRequestUtils requestUtils = new HttpRequestUtils();
-     CloseableHttpResponse response = requestUtils.postRequest(
-             "http://127.0.0.1:8080/api/users",
-             requestBody,
-             new BasicHeader("X-Request-Id", "request-001"))) {
-    String responseBody = EntityUtils.toString(
-            response.getEntity(), StandardCharsets.UTF_8);
-    System.out.println(responseBody);
-}
+put("name","张三");
+requestBody.
+
+put("age",20);
+
+HttpRequestSpec request = HttpRequestSpec.builder(
+                HttpPost.METHOD_NAME,
+                "http://127.0.0.1:8080/api/users")
+        .jsonBody(requestBody)
+        .header("X-Request-Id", "request-001")
+        .build();
+
+UserInfo userInfo = requestUtils.execute(
+        request, HttpResponseHandlers.asJson(UserInfo.class));
 ```
 
-`putRequest` 和 `patchRequest` 的调用方式与 `postRequest` 相同：
+### 表单和文本正文
+
+`formBody` 明确创建 UTF-8 的 `application/x-www-form-urlencoded` 实体；
+`textBody` 使用调用方提供的 `ContentType`：
 
 ```java
-try (CloseableHttpResponse response =
-             requestUtils.putRequest("http://127.0.0.1:8080/api/users/1", requestBody)) {
-    // 处理响应
-}
-
-try (CloseableHttpResponse response =
-             requestUtils.patchRequest("http://127.0.0.1:8080/api/users/1", requestBody)) {
-    // 处理响应
-}
-```
-
-以上片段中的 `requestUtils` 应由外层 try-with-resources 或应用生命周期统一管理。
-
-### 发送原始 JSON 字符串
-
-传入 `String` 时不会再次进行 JSON 序列化：
-
-```java
-String json = "{\"name\":\"张三\",\"age\":20}";
-
-try (HttpRequestUtils requestUtils = new HttpRequestUtils();
-     CloseableHttpResponse response = requestUtils.postRequest(
-             "http://127.0.0.1:8080/api/users", json)) {
-    // 处理响应
-}
-```
-
-### application/x-www-form-urlencoded 表单
-
-`useFormData=true` 在当前 API 中表示使用 `application/x-www-form-urlencoded`，不是 multipart：
-
-```java
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.rdlinux.luava.http.HttpRequestUtils;
-
-import java.util.HashMap;
-import java.util.Map;
-
 Map<String, Object> form = new HashMap<>();
-form.put("username", "admin");
-form.put("password", "secret");
+form.
 
-try (HttpRequestUtils requestUtils = new HttpRequestUtils();
-     CloseableHttpResponse response = requestUtils.httpRequest(
-             HttpPost.METHOD_NAME,
-             "http://127.0.0.1:8080/api/login",
-             null,
-             form,
-             true)) {
-    // 处理响应
-}
+put("username","admin");
+form.
+
+put("password","secret");
+
+HttpRequestSpec formRequest = HttpRequestSpec.builder(
+                HttpPost.METHOD_NAME,
+                "http://127.0.0.1:8080/api/login")
+        .formBody(form)
+        .build();
+
+HttpRequestSpec textRequest = HttpRequestSpec.builder(
+                HttpPost.METHOD_NAME,
+                "http://127.0.0.1:8080/api/text")
+        .textBody("plain text", ContentType.TEXT_PLAIN)
+        .build();
 ```
 
-### multipart 文件上传
+### multipart 和自定义 HttpEntity
 
-multipart 请求通过 Apache `MultipartEntityBuilder` 创建，然后作为 `HttpEntity` 发送：
+multipart 请求先通过 Apache `MultipartEntityBuilder` 创建，再使用 `entityBody`
+发送：
 
 ```java
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.rdlinux.luava.http.HttpRequestUtils;
-
-import java.io.File;
-import java.nio.charset.StandardCharsets;
-
-File uploadFile = new File("/path/to/document.pdf");
-
 HttpEntity multipartEntity = MultipartEntityBuilder.create()
         .addBinaryBody(
                 "file",
@@ -241,74 +177,45 @@ HttpEntity multipartEntity = MultipartEntityBuilder.create()
                 ContentType.TEXT_PLAIN.withCharset(StandardCharsets.UTF_8))
         .build();
 
-try (HttpRequestUtils requestUtils = new HttpRequestUtils();
-     CloseableHttpResponse response = requestUtils.postRequest(
-             "http://127.0.0.1:8080/api/files",
-             multipartEntity)) {
-    int statusCode = response.getStatusLine().getStatusCode();
-    System.out.println("statusCode = " + statusCode);
-}
+HttpRequestSpec uploadRequest = HttpRequestSpec.builder(
+                HttpPost.METHOD_NAME,
+                "http://127.0.0.1:8080/api/files")
+        .entityBody(multipartEntity)
+        .build();
+
+try(
+CloseableHttpResponse response =
+        requestUtils.execute(uploadRequest)){
+        System.out.
+
+println(response.getStatusLine().
+
+getStatusCode());
+        }
 ```
 
-仓库中的 `FileUploadTest` 使用临时文件和内嵌 HTTP 服务提供了可重复运行的完整示例。
+`jsonBody`、`formBody`、`textBody` 和 `entityBody` 互斥，同一个 Builder 重复设置
+正文会立即抛出异常。
 
-### DELETE、HEAD 和 OPTIONS
+## 响应处理
+
+`HttpResponseHandlers` 支持字符串、`Class`、`Type`、`JavaType`、
+`TypeReference` 以及对应的 snake_case JSON 转换：
 
 ```java
-try (CloseableHttpResponse response =
-             requestUtils.deleteRequest("http://127.0.0.1:8080/api/users/1")) {
-    // 处理删除响应
-}
-
-try (CloseableHttpResponse response =
-             requestUtils.headRequest("http://127.0.0.1:8080/api/files/1")) {
-    // 读取响应头
-}
-
-try (CloseableHttpResponse response =
-             requestUtils.optionsRequest("http://127.0.0.1:8080/api/users")) {
-    // 读取 Allow 等响应头
-}
+List<UserInfo> users = requestUtils.execute(
+        HttpRequestSpec.builder(
+                        HttpGet.METHOD_NAME,
+                        "http://127.0.0.1:8080/api/users")
+                .build(),
+        HttpResponseHandlers.asJson(
+                new TypeReference<List<UserInfo>>() {
+                }));
 ```
 
-## JSON 响应转换
-
-### 转换为普通 Java 对象
-
-```java
-try (HttpRequestUtils requestUtils = new HttpRequestUtils();
-     CloseableHttpResponse response =
-             requestUtils.getRequest("http://127.0.0.1:8080/api/users/1")) {
-    UserInfo userInfo = HttpRequestUtils.responseDataConversion(
-            response, UserInfo.class);
-}
-```
-
-### 转换为泛型对象
-
-```java
-import com.fasterxml.jackson.core.type.TypeReference;
-
-import java.util.List;
-
-try (HttpRequestUtils requestUtils = new HttpRequestUtils();
-     CloseableHttpResponse response =
-             requestUtils.getRequest("http://127.0.0.1:8080/api/users")) {
-    List<UserInfo> users = HttpRequestUtils.responseDataConversion(
-            response,
-            new TypeReference<List<UserInfo>>() {
-            });
-}
-```
-
-当 JSON 字段使用 `snake_case`，Java 属性使用小驼峰时，可以使用：
-
-```java
-UserInfo userInfo = HttpRequestUtils.responseDataSnakeConversion(
-        response, UserInfo.class);
-```
-
-`responseDataConversion` 和 `responseDataSnakeConversion` 会消费响应体并关闭响应。调用后不要再次读取该响应。
+静态 `responseDataConversion`、`responseDataSnakeConversion` 和
+`consumeResponseAsString` 可用于处理原始 `CloseableHttpResponse`。这些方法会
+消费正文并关闭响应。
 
 ## 查询参数工具
 
@@ -322,11 +229,17 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 Map<String, Object> params = new LinkedHashMap<>();
-params.put("name", "张三");
-params.put("tags", Arrays.asList("java", "http"));
+params.
+
+put("name","张三");
+params.
+
+put("tags",Arrays.asList("java", "http"));
 
 String queryString = Qs.stringify(params);
-System.out.println(queryString);
+System.out.
+
+println(queryString);
 ```
 
 ## 连接池配置
@@ -334,9 +247,9 @@ System.out.println(queryString);
 默认构造 `HttpRequestUtils` 时会创建并复用默认连接池：
 
 ```java
-try (HttpRequestUtils requestUtils = new HttpRequestUtils()) {
-    // 在此生命周期内重复发起请求，内部复用同一个HTTP客户端和连接池
-}
+try(HttpRequestUtils requestUtils = new HttpRequestUtils()){
+        // 在此生命周期内重复发起请求，内部复用同一个HTTP客户端和连接池
+        }
 ```
 
 自定义配置示例：
@@ -357,25 +270,26 @@ ConnectPool connectPool = new ConnectPool()
         .setRetryCount(3)
         .setIoThreadCount(4);
 
-try (HttpRequestUtils requestUtils = new HttpRequestUtils(connectPool)) {
-    // 使用自定义连接池发起多个请求
-}
+try(
+HttpRequestUtils requestUtils = new HttpRequestUtils(connectPool)){
+        // 使用自定义连接池发起多个请求
+        }
 ```
 
 配置项说明：
 
-| 配置项 | 默认值 | 说明 |
-|---|---:|---|
-| `connectTimeout` | 5000 ms | 建立 TCP 连接的超时时间 |
-| `socketTimeout` | 10000 ms | 等待响应数据的超时时间 |
-| `connectionRequestTimeout` | 10000 ms | 从连接池获取连接的超时时间 |
-| `singleMaxActive` | 5 | 每个目标路由的最大连接数 |
-| `allMaxActive` | 40 | 所有路由的最大总连接数，不能小于 `singleMaxActive` |
-| `keepAliveDuration` | 60000 ms | 服务端未声明 Keep-Alive 时使用的持续时间 |
-| `maxIdleTime` | 1800000 ms | 连接允许保持空闲的最长时间 |
-| `cleanSleepTime` | 30000 ms | 后台连接清理间隔 |
-| `retryCount` | 3 | 同步客户端失败重试配置 |
-| `ioThreadCount` | CPU 数量 | 异步客户端 I/O 线程数 |
+| 配置项                        |        默认值 | 说明                                 |
+|----------------------------|-----------:|------------------------------------|
+| `connectTimeout`           |    5000 ms | 建立 TCP 连接的超时时间                     |
+| `socketTimeout`            |   10000 ms | 等待响应数据的超时时间                        |
+| `connectionRequestTimeout` |   10000 ms | 从连接池获取连接的超时时间                      |
+| `singleMaxActive`          |          5 | 每个目标路由的最大连接数                       |
+| `allMaxActive`             |         40 | 所有路由的最大总连接数，不能小于 `singleMaxActive` |
+| `keepAliveDuration`        |   60000 ms | 服务端未声明 Keep-Alive 时使用的持续时间         |
+| `maxIdleTime`              | 1800000 ms | 连接允许保持空闲的最长时间                      |
+| `cleanSleepTime`           |   30000 ms | 后台连接清理间隔                           |
+| `retryCount`               |          3 | 同步客户端失败重试配置                        |
+| `ioThreadCount`            |     CPU 数量 | 异步客户端 I/O 线程数                      |
 
 以下配置约束会在构建客户端时检查：
 
@@ -399,20 +313,22 @@ ConnectPool connectPool = new ConnectPool()
         .setSingleMaxActive(10)
         .setAllMaxActive(50);
 
-try (CloseableHttpClient client = new CloseableHttpClientBuilder()
+try(
+CloseableHttpClient client = new CloseableHttpClientBuilder()
         .setConnectPool(connectPool)
         .build();
-     CloseableHttpResponse response = client.execute(
-             new HttpGet("http://127.0.0.1:8080/api/health"))) {
-    // 处理响应
-}
+CloseableHttpResponse response = client.execute(
+        new HttpGet("http://127.0.0.1:8080/api/health"))){
+        // 处理响应
+        }
 ```
 
 关闭客户端时，连接池和后台空闲连接清理线程会一并停止。
 
 ## 与 RestTemplate 结合使用
 
-当前项目使用 Apache HttpClient 4.5，适用于 Spring Framework 5.x 或 Spring Boot 2.x 的 `HttpComponentsClientHttpRequestFactory`。建议将请求工厂和 `RestTemplate` 都注册为单例 Bean：
+当前项目使用 Apache HttpClient 4.5，适用于 Spring Framework 5.x 或 Spring Boot 2.x 的
+`HttpComponentsClientHttpRequestFactory`。建议将请求工厂和 `RestTemplate` 都注册为单例 Bean：
 
 ```java
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -468,14 +384,16 @@ public class RestTemplateConfig {
 }
 ```
 
-`HttpComponentsClientHttpRequestFactory` 实现了 Spring 的销毁回调。应用停止时，Spring 会关闭其持有的 `CloseableHttpClient`，随后连接池和后台空闲连接清理线程会一并停止。
+`HttpComponentsClientHttpRequestFactory` 实现了 Spring 的销毁回调。应用停止时，Spring 会关闭其持有的 `CloseableHttpClient`
+，随后连接池和后台空闲连接清理线程会一并停止。
 
 使用时应注意：
 
 - `HttpComponentsClientHttpRequestFactory` 必须作为 Spring Bean 管理，不要仅在 `new RestTemplate(...)` 中创建临时实例。
 - `RestTemplate` 应作为单例复用，不要为每次请求创建新实例。
 - 不要在应用运行期间手动关闭请求工厂持有的 `CloseableHttpClient`。
-- Spring Framework 6.x 和 Spring Boot 3.x 的 `HttpComponentsClientHttpRequestFactory` 使用 Apache HttpClient 5，不能直接接收本项目当前构建的 HttpClient 4 客户端。
+- Spring Framework 6.x 和 Spring Boot 3.x 的 `HttpComponentsClientHttpRequestFactory` 使用 Apache HttpClient
+  5，不能直接接收本项目当前构建的 HttpClient 4 客户端。
 
 ## 异步客户端
 
@@ -498,19 +416,24 @@ ConnectPool connectPool = new ConnectPool()
         .setAllMaxActive(100)
         .setIoThreadCount(4);
 
-try (CloseableHttpAsyncClient client = new AsyncCloseableHttpClientBuilder()
+try(
+CloseableHttpAsyncClient client = new AsyncCloseableHttpClientBuilder()
         .setConnectPool(connectPool)
-        .build()) {
-    client.start();
+        .build()){
+        client.
 
-    Future<HttpResponse> future = client.execute(
-            new HttpGet("http://127.0.0.1:8080/api/health"),
-            null);
+start();
 
-    HttpResponse response = future.get(10, TimeUnit.SECONDS);
-    String responseBody = EntityUtils.toString(
-            response.getEntity(), StandardCharsets.UTF_8);
-    System.out.println(responseBody);
+Future<HttpResponse> future = client.execute(
+        new HttpGet("http://127.0.0.1:8080/api/health"),
+        null);
+
+HttpResponse response = future.get(10, TimeUnit.SECONDS);
+String responseBody = EntityUtils.toString(
+        response.getEntity(), StandardCharsets.UTF_8);
+    System.out.
+
+println(responseBody);
 }
 ```
 
@@ -549,22 +472,24 @@ try (CloseableHttpAsyncClient client = new AsyncCloseableHttpClientBuilder()
 为兼容确实依赖自签名证书且尚未配置信任库的历史环境，可以显式启用不安全模式：
 
 ```java
-try (HttpRequestUtils requestUtils =
-             new HttpRequestUtils(new ConnectPool(), true)) {
-    // 仅限明确接受中间人攻击风险的兼容环境
-}
+try(HttpRequestUtils requestUtils =
+        new HttpRequestUtils(new ConnectPool(), true)){
+        // 仅限明确接受中间人攻击风险的兼容环境
+        }
 
-try (CloseableHttpClient client = new CloseableHttpClientBuilder()
+        try(
+CloseableHttpClient client = new CloseableHttpClientBuilder()
         .setConnectPool(new ConnectPool())
         .setInsecureTrustAllCertificates(true)
-        .build()) {
-    // 仅限兼容环境
-}
+        .build()){
+        // 仅限兼容环境
+        }
 ```
 
 不安全模式会信任所有 TLS 证书并关闭主机名校验，不应在生产网络使用。
 
-Trace 日志可能包含完整 URL 和请求体，生产环境开启 Trace 日志前应确认其中不包含令牌、密码或敏感业务数据。
+Trace 日志包含完整 URL、正文内容类型和长度，生产环境开启 Trace 日志前应确认
+URL 查询参数中不包含令牌、密码或敏感业务数据。
 
 ## 构建和测试
 

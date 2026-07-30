@@ -6,10 +6,12 @@ import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.ParseException;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.*;
-import org.apache.http.entity.ContentType;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
+import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.entity.HttpEntityWrapper;
-import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.rdlinux.luava.json.JacksonUtils;
@@ -21,7 +23,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Type;
 import java.net.URI;
-
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 
 /**
  * 基于Apache HttpClient的HTTP请求工具。
@@ -32,10 +35,6 @@ public class HttpRequestUtils implements AutoCloseable {
      */
     private static final Logger log = LoggerFactory.getLogger(HttpRequestUtils.class);
     /**
-     * 当前工具持有的HTTP客户端
-     */
-    private volatile CloseableHttpClient httpClient;
-    /**
      * 连接池配置
      */
     private final ConnectPool connectPool;
@@ -43,6 +42,10 @@ public class HttpRequestUtils implements AutoCloseable {
      * 是否显式信任全部TLS证书并关闭主机名校验。
      */
     private final boolean insecureTrustAllCertificates;
+    /**
+     * 当前工具持有的HTTP客户端
+     */
+    private volatile CloseableHttpClient httpClient;
     /**
      * 工具关闭状态
      */
@@ -60,7 +63,7 @@ public class HttpRequestUtils implements AutoCloseable {
     /**
      * 构造一个使用连接池的HTTP请求工具。
      *
-     * @param connectPool 连接池配置对象，为null时使用默认配置
+     * @param connectPool                  连接池配置对象，为null时使用默认配置
      * @param insecureTrustAllCertificates 是否信任全部TLS证书并关闭主机名校验
      */
     public HttpRequestUtils(ConnectPool connectPool,
@@ -79,225 +82,242 @@ public class HttpRequestUtils implements AutoCloseable {
         this(null);
     }
 
-    private static String responseToString(CloseableHttpResponse response) {
-        HttpEntity entity = response.getEntity();
-        String entityString;
+    /**
+     * 消费响应正文并关闭响应。
+     *
+     * <p>响应没有正文时返回空字符串。</p>
+     *
+     * @param response HTTP 响应
+     * @return 响应正文
+     */
+    public static String consumeResponseAsString(
+            CloseableHttpResponse response) {
+        if (response == null) {
+            throw new IllegalArgumentException("response can not be null");
+        }
         try {
-            entityString = EntityUtils.toString(entity);
+            HttpEntity entity = response.getEntity();
+            return entity == null ? "" : EntityUtils.toString(entity, StandardCharsets.UTF_8);
         } catch (ParseException | IOException e1) {
-            throw new RuntimeException(e1);
+            throw new HttpResponseConsumeException(e1);
         } finally {
             try {
-                EntityUtils.consume(entity);
                 response.close();
             } catch (IOException e) {
-                log.error("httpClient释放连接失败", e);
+                log.error("HTTP响应关闭失败", e);
             }
         }
-        return entityString;
     }
 
     /**
      * 把返回数据转换为指定对象
      */
     public static <T> T responseDataConversion(CloseableHttpResponse response, Class<T> type) {
-        return JacksonUtils.conversion(responseToString(response), type);
+        return JacksonUtils.conversion(consumeResponseAsString(response), type);
     }
 
     /**
      * 把返回数据转换为指定对象
      */
     public static <T> T responseDataSnakeConversion(CloseableHttpResponse response, Class<T> type) {
-        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
+        return JacksonUtils.snakeCaseConversion(consumeResponseAsString(response), type);
     }
 
     /**
      * 把返回数据转换为指定对象
      */
     public static <T> T responseDataConversion(CloseableHttpResponse response, Type type) {
-        return JacksonUtils.conversion(responseToString(response), type);
+        return JacksonUtils.conversion(consumeResponseAsString(response), type);
     }
 
     /**
      * 把返回数据转换为指定对象
      */
     public static <T> T responseDataSnakeConversion(CloseableHttpResponse response, Type type) {
-        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
+        return JacksonUtils.snakeCaseConversion(consumeResponseAsString(response), type);
     }
 
     /**
      * 把返回数据转换为指定对象
      */
     public static <T> T responseDataConversion(CloseableHttpResponse response, JavaType type) {
-        return JacksonUtils.conversion(responseToString(response), type);
+        return JacksonUtils.conversion(consumeResponseAsString(response), type);
     }
 
     /**
      * 把返回数据转换为指定对象
      */
     public static <T> T responseDataSnakeConversion(CloseableHttpResponse response, JavaType type) {
-        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
+        return JacksonUtils.snakeCaseConversion(consumeResponseAsString(response), type);
     }
 
     /**
      * 把返回数据转换为指定对象
      */
     public static <T> T responseDataConversion(CloseableHttpResponse response, TypeReference<T> type) {
-        return JacksonUtils.conversion(responseToString(response), type);
+        return JacksonUtils.conversion(consumeResponseAsString(response), type);
     }
 
     /**
      * 把返回数据转换为指定对象
      */
     public static <T> T responseDataSnakeConversion(CloseableHttpResponse response, TypeReference<T> type) {
-        return JacksonUtils.snakeCaseConversion(responseToString(response), type);
+        return JacksonUtils.snakeCaseConversion(consumeResponseAsString(response), type);
     }
 
     /**
-     * http请求
+     * 创建包含查询参数的请求 URI。
      *
-     * @param method      请求方法
-     * @param url         请求地址
-     * @param urlParams   url参数
-     * @param bodyParam   body参数,如果不是HttpEntity类型,将根据useFormData使用json或formData传递body参数
-     * @param useFormData 使用formData传递参数
-     * @param headers     请求头
-     * @return HTTP响应，调用方必须关闭该响应
+     * @param url       原始请求地址
+     * @param urlParams URL 查询参数
+     * @return 请求 URI
      */
-    public CloseableHttpResponse httpRequest(String method, String url, Object urlParams, Object bodyParam,
-                                             boolean useFormData, Header... headers) {
-        return this.executeHttpRequest(method, url, urlParams, bodyParam,
-                useFormData, null, headers);
-    }
-
-    /**
-     * 使用单次请求配置执行HTTP请求。
-     *
-     * <p>该方法使用独立名称，避免与历史可变参数API在传入null时产生重载歧义。</p>
-     *
-     * @param method 请求方法
-     * @param url 请求地址
-     * @param urlParams URL参数
-     * @param bodyParam 请求正文；非HttpEntity对象根据useFormData转换
-     * @param useFormData 是否使用application/x-www-form-urlencoded
-     * @param requestOptions 单次请求配置
-     * @param headers 请求头
-     * @return HTTP响应，调用方必须关闭该响应
-     */
-    public CloseableHttpResponse httpRequestWithOptions(
-            String method, String url, Object urlParams, Object bodyParam,
-            boolean useFormData, HttpRequestOptions requestOptions,
-            Header... headers) {
-        if (requestOptions == null) {
-            throw new IllegalArgumentException("requestOptions can not be null");
+    private static URI createRequestUri(String url, Object urlParams) {
+        try {
+            URIBuilder uriBuilder = new URIBuilder(url, StandardCharsets.UTF_8);
+            if (urlParams == null) {
+                return uriBuilder.build();
+            }
+            String queryString = Qs.stringify(urlParams);
+            if (!queryString.isEmpty()) {
+                uriBuilder.addParameters(URLEncodedUtils.parse(queryString, StandardCharsets.UTF_8));
+            }
+            return uriBuilder.build();
+        } catch (URISyntaxException exception) {
+            throw new IllegalArgumentException("invalid request url: " + url, exception);
         }
-        return this.executeHttpRequest(method, url, urlParams, bodyParam,
-                useFormData, requestOptions, headers);
+    }
+
+    /**
+     * 创建请求正文跟踪实体。
+     *
+     * @param bodyEntity 请求正文实体
+     * @return 请求正文跟踪实体，无正文时为 null
+     */
+    private static RequestWriteTrackingEntity createTrackingEntity(HttpEntity bodyEntity) {
+        if (bodyEntity == null) {
+            return null;
+        }
+        if (log.isTraceEnabled()) {
+            log.trace("本次请求body类型:{}, 长度:{}",
+                    bodyEntity.getContentType(),
+                    bodyEntity.getContentLength());
+        }
+        return new RequestWriteTrackingEntity(bodyEntity);
+    }
+
+    /**
+     * 根据是否存在正文创建 Apache 请求对象。
+     *
+     * @param method         HTTP 请求方法
+     * @param trackingEntity 请求正文跟踪实体
+     * @return Apache 请求对象
+     */
+    private static HttpRequestBase createRequest(
+            String method, RequestWriteTrackingEntity trackingEntity) {
+        if (trackingEntity == null) {
+            return new HttpRequestBase() {
+                @Override
+                public String getMethod() {
+                    return method;
+                }
+            };
+        }
+        HttpEntityEnclosingRequestBase request =
+                new HttpEntityEnclosingRequestBase() {
+                    @Override
+                    public String getMethod() {
+                        return method;
+                    }
+                };
+        request.setEntity(trackingEntity);
+        return request;
+    }
+
+    /**
+     * 请求头不存在时从 MDC 注入请求头。
+     *
+     * @param request    Apache 请求对象
+     * @param headerName 请求头名称
+     * @param mdcName    MDC 属性名称
+     */
+    private static void addMdcHeaderIfAbsent(
+            HttpRequestBase request, String headerName, String mdcName) {
+        if (request.getFirstHeader(headerName) != null) {
+            return;
+        }
+        String value = MDC.get(mdcName);
+        if (value != null && !value.isEmpty()) {
+            request.setHeader(headerName, value);
+        }
+    }
+
+    /**
+     * 执行类型化 HTTP 请求。
+     *
+     * @param requestSpec HTTP 请求描述
+     * @return HTTP 响应，调用方必须关闭该响应
+     */
+    public CloseableHttpResponse execute(HttpRequestSpec requestSpec) {
+        if (requestSpec == null) {
+            throw new IllegalArgumentException("requestSpec can not be null");
+        }
+        return this.executeHttpRequest(requestSpec);
+    }
+
+    /**
+     * 执行类型化 HTTP 请求并处理响应。
+     *
+     * <p>该方法在响应处理完成或发生异常后自动关闭响应。</p>
+     *
+     * @param requestSpec     HTTP 请求描述
+     * @param responseHandler HTTP 响应处理器
+     * @param <T>             响应处理结果类型
+     * @return 响应处理结果
+     */
+    public <T> T execute(HttpRequestSpec requestSpec, HttpResponseHandler<T> responseHandler) {
+        if (responseHandler == null) {
+            throw new IllegalArgumentException(
+                    "responseHandler can not be null");
+        }
+        try (CloseableHttpResponse response = this.execute(requestSpec)) {
+            return responseHandler.handle(response);
+        } catch (IOException exception) {
+            throw new HttpResponseConsumeException(exception);
+        }
     }
 
     /**
      * 执行HTTP请求。
      *
-     * @param method 请求方法
-     * @param url 请求地址
-     * @param urlParams URL参数
-     * @param bodyParam 请求正文
-     * @param useFormData 是否使用表单正文
-     * @param requestOptions 可选单次请求配置
-     * @param headers 请求头
+     * @param requestSpec HTTP 请求描述
      * @return HTTP响应，调用方必须关闭该响应
      */
-    private CloseableHttpResponse executeHttpRequest(
-            String method, String url, Object urlParams, Object bodyParam,
-            boolean useFormData, HttpRequestOptions requestOptions,
-            Header... headers) {
-        if (urlParams != null) {
-            String urlParam = Qs.stringify(urlParams);
-            if (url.contains("?")) {
-                url += "&" + urlParam;
-            } else {
-                url += "?" + urlParam;
-            }
-        }
+    private CloseableHttpResponse executeHttpRequest(HttpRequestSpec requestSpec) {
+        URI requestUri = createRequestUri(
+                requestSpec.getUrl(), requestSpec.getQueryParams());
         if (log.isTraceEnabled()) {
-            log.trace("本次请求地址:" + url);
+            log.trace("本次请求地址:{}", requestUri);
         }
         CloseableHttpClient httpclient = this.getHttpClient();
-        HttpEntityEnclosingRequestBase request = new HttpEntityEnclosingRequestBase() {
-            @Override
-            public String getMethod() {
-                return method;
-            }
-        };
-        request.setURI(URI.create(url));
+        RequestWriteTrackingEntity trackingEntity = createTrackingEntity(requestSpec.getBodyEntity());
+        HttpRequestBase request = createRequest(requestSpec.getMethod(), trackingEntity);
+        request.setURI(requestUri);
+        HttpRequestOptions requestOptions = requestSpec.getRequestOptions();
         if (requestOptions != null) {
-            request.setConfig(createRequestConfig(requestOptions));
+            request.setConfig(this.createRequestConfig(requestOptions));
         }
-        if (headers != null && headers.length != 0) {
+        Header[] headers = requestSpec.getHeaders();
+        if (headers != null) {
             for (Header header : headers) {
                 if (header != null) {
                     request.addHeader(header);
                 }
             }
         }
-        //添加调用链追踪请求头
-        if (request.getFirstHeader(SleuthConst.traceIdHeader) != null) {
-            String traceId = MDC.get(SleuthConst.traceIdLogName);
-            if (traceId != null) {
-                request.addHeader(SleuthConst.traceIdHeader, traceId);
-            }
-        }
-        if (request.getFirstHeader(SleuthConst.spanIdHeader) != null) {
-            String spanId = MDC.get(SleuthConst.spanIdLogName);
-            if (spanId != null) {
-                request.addHeader(SleuthConst.spanIdHeader, spanId);
-            }
-        }
-        if (request.getFirstHeader(SleuthConst.parentSpanIdHeader) != null) {
-            String parentSpanId = MDC.get(SleuthConst.parentSpanIdLogName);
-            if (parentSpanId != null) {
-                request.addHeader(SleuthConst.parentSpanIdHeader, parentSpanId);
-            }
-        }
-        RequestWriteTrackingEntity trackingEntity = null;
-        // 处理body参数
-        if (bodyParam != null) {
-            HttpEntity bodyEntity;
-            if (bodyParam instanceof HttpEntity) {
-                if (log.isTraceEnabled()) {
-                    log.trace("本次请求body参数:" + bodyParam);
-                }
-                bodyEntity = (HttpEntity) bodyParam;
-            } else {
-                if (useFormData) {
-                    String stringify = Qs.stringify(bodyParam);
-                    if (log.isTraceEnabled()) {
-                        log.trace("本次请求body参数:" + stringify);
-                    }
-                    StringEntity formEntity = new StringEntity(
-                            stringify, "UTF-8");
-                    formEntity.setContentType(
-                            "application/x-www-form-urlencoded");
-                    formEntity.setContentEncoding("UTF-8");
-                    bodyEntity = formEntity;
-                } else {
-                    String bodyStr;
-                    if (bodyParam instanceof String) {
-                        bodyStr = (String) bodyParam;
-                    } else if (bodyParam instanceof StringBuilder || bodyParam instanceof StringBuffer) {
-                        bodyStr = bodyParam.toString();
-                    } else {
-                        bodyStr = JacksonUtils.toJsonString(bodyParam);
-                    }
-                    if (log.isTraceEnabled()) {
-                        log.trace("本次请求body参数:" + bodyStr);
-                    }
-                    bodyEntity = new StringEntity(bodyStr, ContentType.APPLICATION_JSON);
-                }
-            }
-            trackingEntity = new RequestWriteTrackingEntity(bodyEntity);
-            request.setEntity(trackingEntity);
-        }
+        addMdcHeaderIfAbsent(request, SleuthConst.traceIdHeader, SleuthConst.traceIdLogName);
+        addMdcHeaderIfAbsent(request, SleuthConst.spanIdHeader, SleuthConst.spanIdLogName);
+        addMdcHeaderIfAbsent(request, SleuthConst.parentSpanIdHeader, SleuthConst.parentSpanIdLogName);
         try {
             return httpclient.execute(request);
         } catch (IOException e) {
@@ -314,224 +334,24 @@ public class HttpRequestUtils implements AutoCloseable {
      * @param requestOptions 单次请求配置
      * @return Apache请求配置
      */
-    private static RequestConfig createRequestConfig(
+    private RequestConfig createRequestConfig(
             HttpRequestOptions requestOptions) {
         return RequestConfig.custom()
-                .setConnectTimeout(requestOptions.getConnectTimeout())
-                .setSocketTimeout(requestOptions.getSocketTimeout())
+                .setConnectTimeout(requestOptions.hasConnectTimeout()
+                        ? requestOptions.getConnectTimeout()
+                        : this.connectPool.getConnectTimeout())
+                .setSocketTimeout(requestOptions.hasSocketTimeout()
+                        ? requestOptions.getSocketTimeout()
+                        : this.connectPool.getSocketTimeout())
                 .setConnectionRequestTimeout(
-                        requestOptions.getConnectionRequestTimeout())
-                .setRedirectsEnabled(requestOptions.isRedirectsEnabled())
+                        requestOptions.hasConnectionRequestTimeout()
+                                ? requestOptions.getConnectionRequestTimeout()
+                                : this.connectPool
+                                .getConnectionRequestTimeout())
+                .setRedirectsEnabled(requestOptions.hasRedirectsEnabled()
+                        ? requestOptions.isRedirectsEnabled()
+                        : RequestConfig.DEFAULT.isRedirectsEnabled())
                 .build();
-    }
-
-    /**
-     * http请求
-     *
-     * @param method    请求方法
-     * @param url       请求地址
-     * @param urlParams url参数
-     * @param bodyParam body参数,如果不是HttpEntity类型,使用json传递body参数
-     * @param headers   请求头
-     */
-    public CloseableHttpResponse httpRequest(String method, String url, Object urlParams, Object bodyParam,
-                                             Header... headers) {
-        return this.httpRequest(method, url, urlParams, bodyParam, false, headers);
-    }
-
-    /**
-     * get请求
-     *
-     * @param url     请求地址
-     * @param headers 请求头
-     */
-    public CloseableHttpResponse getRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
-        return this.httpRequest(HttpGet.METHOD_NAME, url, urlParams, bodyParam, headers);
-    }
-
-    /**
-     * get请求
-     *
-     * @param url       请求地址
-     * @param urlParams url参数
-     * @param headers   请求头
-     */
-    public CloseableHttpResponse getRequest(String url, Object urlParams, Header... headers) {
-        return this.getRequest(url, urlParams, null, headers);
-    }
-
-    /**
-     * get请求
-     *
-     * @param url 请求地址
-     */
-    public CloseableHttpResponse getRequest(String url) {
-        return this.getRequest(url, null);
-    }
-
-    /**
-     * delete请求
-     *
-     * @param url     请求地址
-     * @param headers 请求头
-     */
-    public CloseableHttpResponse deleteRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
-        return this.httpRequest(HttpDelete.METHOD_NAME, url, urlParams, bodyParam, headers);
-    }
-
-    /**
-     * delete请求
-     *
-     * @param url       请求地址
-     * @param urlParams url参数
-     * @param headers   请求头
-     */
-    public CloseableHttpResponse deleteRequest(String url, Object urlParams, Header... headers) {
-        return this.deleteRequest(url, urlParams, null, headers);
-    }
-
-    /**
-     * delete请求
-     *
-     * @param url 请求地址
-     */
-    public CloseableHttpResponse deleteRequest(String url) {
-        return this.deleteRequest(url, null);
-    }
-
-    /**
-     * head请求
-     *
-     * @param url     请求地址
-     * @param headers 请求头
-     */
-    public CloseableHttpResponse headRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
-        return this.httpRequest(HttpHead.METHOD_NAME, url, urlParams, bodyParam, headers);
-    }
-
-    /**
-     * head请求
-     *
-     * @param url       请求地址
-     * @param urlParams url参数
-     * @param headers   请求头
-     */
-    public CloseableHttpResponse headRequest(String url, Object urlParams, Header... headers) {
-        return this.headRequest(url, urlParams, null, headers);
-    }
-
-    /**
-     * head请求
-     *
-     * @param url 请求地址
-     */
-    public CloseableHttpResponse headRequest(String url) {
-        return this.headRequest(url, null);
-    }
-
-    /**
-     * options请求
-     *
-     * @param url     请求地址
-     * @param headers 请求头
-     */
-    public CloseableHttpResponse optionsRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
-        return this.httpRequest(HttpOptions.METHOD_NAME, url, urlParams, bodyParam, headers);
-    }
-
-    /**
-     * options请求
-     *
-     * @param url       请求地址
-     * @param urlParams url参数
-     * @param headers   请求头
-     */
-    public CloseableHttpResponse optionsRequest(String url, Object urlParams, Header... headers) {
-        return this.optionsRequest(url, urlParams, null, headers);
-    }
-
-    /**
-     * options请求
-     *
-     * @param url 请求地址
-     */
-    public CloseableHttpResponse optionsRequest(String url) {
-        return this.optionsRequest(url, null);
-    }
-
-    /**
-     * post请求
-     *
-     * @param url       请求地址, 不可为null
-     * @param urlParams url参数, 可为null
-     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数,
-     *                  可为null
-     * @param headers   请求头, 可为null
-     */
-    public CloseableHttpResponse postRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
-        return this.httpRequest(HttpPost.METHOD_NAME, url, urlParams, bodyParam, headers);
-    }
-
-    /**
-     * post请求
-     *
-     * @param url       请求地址, 不可为null
-     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数,
-     *                  可为null
-     * @param headers   请求头, 可为null
-     */
-    public CloseableHttpResponse postRequest(String url, Object bodyParam, Header... headers) {
-        return this.postRequest(url, null, bodyParam, headers);
-    }
-
-    /**
-     * put请求
-     *
-     * @param url       请求地址, 不可为null
-     * @param urlParams url参数, 可为null
-     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数,
-     *                  可为null
-     * @param headers   请求头, 可为null
-     */
-    public CloseableHttpResponse putRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
-        return this.httpRequest(HttpPut.METHOD_NAME, url, urlParams, bodyParam, headers);
-    }
-
-    /**
-     * put请求
-     *
-     * @param url       请求地址, 不可为null
-     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数,
-     *                  可为null
-     * @param headers   请求头, 可为null
-     */
-    public CloseableHttpResponse putRequest(String url, Object bodyParam, Header... headers) {
-        return this.putRequest(url, null, bodyParam, headers);
-    }
-
-    /**
-     * patch请求
-     *
-     * @param url       请求地址, 不可为null
-     * @param urlParams url参数, 可为null
-     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数,
-     *                  可为null
-     * @param headers   请求头, 可为null
-     */
-    public CloseableHttpResponse patchRequest(String url, Object urlParams, Object bodyParam, Header... headers) {
-        return this.httpRequest(HttpPatch.METHOD_NAME, url, urlParams, bodyParam, headers);
-    }
-
-    /**
-     * patch请求
-     *
-     * @param url       请求地址, 不可为null
-     * @param bodyParam body参数,如果不是HttpEntity类型,则把bodyParam转换为json(如果是Sting,不转换),使用StringEntity传递参数,
-     *                  可为null
-     * @param headers   请求头, 可为null
-     */
-    public CloseableHttpResponse patchRequest(String url, Object bodyParam, Header... headers) {
-        return this.patchRequest(url, null, bodyParam, headers);
     }
 
     /**
