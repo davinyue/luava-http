@@ -9,7 +9,6 @@ public class ConnectPool {
     private static final int defaultConnectionRequestTimeout = 10000;
     private static final int defaultSingleMaxActive = 5;
     private static final int defaultAllMaxActive = 40;
-    private static final boolean defaultConnectionManagerShared = false;
     /**
      * 默认长连接持续时间60000, 单位毫秒
      */
@@ -63,10 +62,6 @@ public class ConnectPool {
      * 长连接可持续时间, 默认为60秒, 单位毫秒, 在服务器不返回长连接持续时间时, 将使用该属性
      */
     private long keepAliveDuration = defaultKeepAliveDuration;
-    /**
-     * 是否共享连接池管理工具。当前构建器在内部创建并持有连接管理器，因此仅支持false。
-     */
-    private Boolean connectionManagerShared = defaultConnectionManagerShared;
     /**
      * 失败重试次数, 默认3
      */
@@ -145,18 +140,6 @@ public class ConnectPool {
 
     public ConnectPool setKeepAliveDuration(long keepAliveDuration) {
         this.keepAliveDuration = keepAliveDuration;
-        return this;
-    }
-
-    public Boolean getConnectionManagerShared() {
-        return this.connectionManagerShared;
-    }
-
-    public ConnectPool setConnectionManagerShared(Boolean connectionManagerShared) {
-        if (connectionManagerShared == null) {
-            throw new IllegalArgumentException("connectionManagerShared can not be null");
-        }
-        this.connectionManagerShared = connectionManagerShared;
         return this;
     }
 

@@ -340,7 +340,6 @@ try (HttpRequestUtils requestUtils = new HttpRequestUtils(connectPool)) {
 | `cleanSleepTime` | 30000 ms | 后台连接清理间隔 |
 | `retryCount` | 3 | 同步客户端失败重试配置 |
 | `ioThreadCount` | CPU 数量 | 异步客户端 I/O 线程数 |
-| `connectionManagerShared` | `false` | 当前内部所有权模式仅支持 `false` |
 
 以下配置约束会在构建客户端时检查：
 
@@ -348,7 +347,6 @@ try (HttpRequestUtils requestUtils = new HttpRequestUtils(connectPool)) {
 - 连接数、生命周期时间和异步 I/O 线程数必须大于 0。
 - `allMaxActive` 不能小于 `singleMaxActive`。
 - `retryCount` 不能小于 0。
-- `connectionManagerShared=true` 不受支持，会抛出 `IllegalArgumentException`。
 
 ## 直接构建同步客户端
 
@@ -375,6 +373,73 @@ try (CloseableHttpClient client = new CloseableHttpClientBuilder()
 ```
 
 关闭客户端时，连接池和后台空闲连接清理线程会一并停止。
+
+## 与 RestTemplate 结合使用
+
+当前项目使用 Apache HttpClient 4.5，适用于 Spring Framework 5.x 或 Spring Boot 2.x 的 `HttpComponentsClientHttpRequestFactory`。建议将请求工厂和 `RestTemplate` 都注册为单例 Bean：
+
+```java
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.rdlinux.luava.http.CloseableHttpClientBuilder;
+import org.rdlinux.luava.http.ConnectPool;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.web.client.RestTemplate;
+
+/**
+ * RestTemplate HTTP连接池配置。
+ */
+@Configuration
+public class RestTemplateConfig {
+
+    /**
+     * 创建由Spring管理生命周期的HTTP请求工厂。
+     *
+     * @return HTTP请求工厂
+     */
+    @Bean
+    public HttpComponentsClientHttpRequestFactory httpRequestFactory() {
+        ConnectPool connectPool = new ConnectPool()
+                .setConnectTimeout(5000)
+                .setSocketTimeout(10000)
+                .setConnectionRequestTimeout(3000)
+                .setSingleMaxActive(20)
+                .setAllMaxActive(100)
+                .setKeepAliveDuration(60000)
+                .setMaxIdleTime(300000)
+                .setCleanSleepTime(30000)
+                .setRetryCount(3);
+
+        CloseableHttpClient httpClient = new CloseableHttpClientBuilder()
+                .setConnectPool(connectPool)
+                .build();
+
+        return new HttpComponentsClientHttpRequestFactory(httpClient);
+    }
+
+    /**
+     * 创建复用HTTP连接池的RestTemplate。
+     *
+     * @param requestFactory HTTP请求工厂
+     * @return RestTemplate
+     */
+    @Bean
+    public RestTemplate restTemplate(
+            HttpComponentsClientHttpRequestFactory requestFactory) {
+        return new RestTemplate(requestFactory);
+    }
+}
+```
+
+`HttpComponentsClientHttpRequestFactory` 实现了 Spring 的销毁回调。应用停止时，Spring 会关闭其持有的 `CloseableHttpClient`，随后连接池和后台空闲连接清理线程会一并停止。
+
+使用时应注意：
+
+- `HttpComponentsClientHttpRequestFactory` 必须作为 Spring Bean 管理，不要仅在 `new RestTemplate(...)` 中创建临时实例。
+- `RestTemplate` 应作为单例复用，不要为每次请求创建新实例。
+- 不要在应用运行期间手动关闭请求工厂持有的 `CloseableHttpClient`。
+- Spring Framework 6.x 和 Spring Boot 3.x 的 `HttpComponentsClientHttpRequestFactory` 使用 Apache HttpClient 5，不能直接接收本项目当前构建的 HttpClient 4 客户端。
 
 ## 异步客户端
 
@@ -423,8 +488,7 @@ try (CloseableHttpAsyncClient client = new AsyncCloseableHttpClientBuilder()
 2. 使用完成后关闭 `HttpRequestUtils`。
 3. 每个原始 `CloseableHttpResponse` 都必须关闭，未关闭响应会持续占用池中连接。
 4. `responseDataConversion` 系列方法会自动消费并关闭响应。
-5. 不要设置 `connectionManagerShared=true`，当前连接管理器由客户端独占管理。
-6. 不要在仍有请求执行时关闭客户端或 `HttpRequestUtils`。
+5. 不要在仍有请求执行时关闭客户端或 `HttpRequestUtils`。
 
 在 Spring 等容器中，建议将 `HttpRequestUtils` 注册为单例 Bean，并在 Bean 销毁阶段调用 `close()`。
 

@@ -113,36 +113,6 @@ public class ConnectionPoolLifecycleTest {
     }
 
     /**
-     * 验证同步客户端拒绝无法管理生命周期的共享连接管理器模式。
-     */
-    @Test
-    public void shouldRejectSharedSyncConnectionManager() {
-        try {
-            new CloseableHttpClientBuilder()
-                    .setConnectPool(new ConnectPool().setConnectionManagerShared(true))
-                    .build();
-            Assert.fail("同步客户端不应接受共享连接管理器");
-        } catch (IllegalArgumentException expected) {
-            Assert.assertTrue(expected.getMessage().contains("connectionManagerShared"));
-        }
-    }
-
-    /**
-     * 验证异步客户端拒绝无法管理生命周期的共享连接管理器模式。
-     */
-    @Test
-    public void shouldRejectSharedAsyncConnectionManager() {
-        try {
-            new AsyncCloseableHttpClientBuilder()
-                    .setConnectPool(new ConnectPool().setConnectionManagerShared(true))
-                    .build();
-            Assert.fail("异步客户端不应接受共享连接管理器");
-        } catch (IllegalArgumentException expected) {
-            Assert.assertTrue(expected.getMessage().contains("connectionManagerShared"));
-        }
-    }
-
-    /**
      * 统计指定前缀的存活线程数量。
      *
      * @param threadNamePrefix 线程名称前缀

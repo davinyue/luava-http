@@ -47,13 +47,6 @@ public class BaseBuilder {
         if (connectPool.getIoThreadCount() <= 0) {
             throw new IllegalArgumentException("ioThreadCount must be greater than 0");
         }
-        if (connectPool.getConnectionManagerShared() == null) {
-            throw new IllegalArgumentException("connectionManagerShared can not be null");
-        }
-        if (connectPool.getConnectionManagerShared()) {
-            throw new IllegalArgumentException(
-                    "connectionManagerShared is not supported because the connection manager is owned by the client");
-        }
     }
 
     protected SSLContext createSSLContext() {
