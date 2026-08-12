@@ -9,8 +9,6 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpRequestBase;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.entity.HttpEntityWrapper;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
@@ -174,18 +172,46 @@ public class HttpRequestUtils implements AutoCloseable {
      */
     private static URI createRequestUri(String url, Object urlParams) {
         try {
-            URIBuilder uriBuilder = new URIBuilder(url, StandardCharsets.UTF_8);
+            URI requestUri = new URI(url);
             if (urlParams == null) {
-                return uriBuilder.build();
+                return requestUri;
             }
             String queryString = Qs.stringify(urlParams);
-            if (!queryString.isEmpty()) {
-                uriBuilder.addParameters(URLEncodedUtils.parse(queryString, StandardCharsets.UTF_8));
+            if (queryString.isEmpty()) {
+                return requestUri;
             }
-            return uriBuilder.build();
+            return appendQueryString(requestUri, queryString);
         } catch (URISyntaxException exception) {
             throw new IllegalArgumentException("invalid request url: " + url, exception);
         }
+    }
+
+    /**
+     * 在 URI 的片段标识之前追加已编码的查询字符串。
+     *
+     * @param uri 原始 URI
+     * @param queryString 已编码的查询字符串
+     * @return 追加查询参数后的 URI
+     * @throws URISyntaxException URI 语法错误
+     */
+    private static URI appendQueryString(URI uri, String queryString)
+            throws URISyntaxException {
+        String uriString = uri.toASCIIString();
+        int fragmentIndex = uriString.indexOf('#');
+        String uriWithoutFragment = fragmentIndex < 0
+                ? uriString : uriString.substring(0, fragmentIndex);
+        String fragment = fragmentIndex < 0
+                ? "" : uriString.substring(fragmentIndex);
+        String separator;
+        if (uri.getRawQuery() == null) {
+            separator = "?";
+        } else if (uri.getRawQuery().isEmpty()) {
+            separator = "";
+        } else {
+            separator = "&";
+        }
+        return new URI(uriWithoutFragment + separator
+                + queryString + fragment);
     }
 
     /**
